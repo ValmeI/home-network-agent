@@ -56,15 +56,15 @@ def revert_domain(domain: str, reason: str) -> None:
     record_revert(domain, reason)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description="Home Network Agent - Monitor and block suspicious domains",
         epilog="""
-examples:
-  python agent.py                                    Run in interactive mode
-  python agent.py --auto                             Auto-block high-confidence domains
-  python agent.py revert example.com "broke service" Unblock domain and record reason
+                examples:
+                python agent.py                                    Run in interactive mode
+                python agent.py --auto                             Auto-block high-confidence domains
+                python agent.py revert example.com "broke service" Unblock domain and record reason
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
