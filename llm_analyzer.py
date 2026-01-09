@@ -41,6 +41,9 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
         "LEARN from your domain_history: if you've seen patterns of false positives or service breaks, adjust your confidence accordingly."
     )
 
+    prompt_size = len(prompt_template) + len(user_message)
+    logger.info(f"LLM prompt size: {prompt_size} characters ({prompt_size / 1024:.2f} KB)")
+
     resp = client.chat.completions.create(
         model=settings.model,
         messages=[{"role": "system", "content": prompt_template}, {"role": "user", "content": user_message}],

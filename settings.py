@@ -1,12 +1,12 @@
 import yaml
 from pathlib import Path
 from typing import List
-from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 
 CONFIG_FILE = "config.yaml"
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     adguard_base_url: str
     adguard_querylog: str
     adguard_username: str
@@ -23,7 +23,8 @@ class Settings(BaseModel):
     suspicious_keywords: List[str]
     filter_out_keywords: List[str]
     min_frequency_trusted: int
-    max_workers: int
+    max_workers: int = 0
+    auto_block_threshold: float
 
 
 def load_settings() -> Settings:
