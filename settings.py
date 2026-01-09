@@ -7,7 +7,8 @@ CONFIG_FILE = "config.yaml"
 
 
 class Settings(BaseModel):
-    adguard_url: str
+    adguard_base_url: str
+    adguard_url_querylog: str
     adguard_username: str
     adguard_password: str
     adguard_query_limit: int
@@ -28,10 +29,10 @@ def load_settings() -> Settings:
     config_file = Path(CONFIG_FILE)
     if not config_file.exists():
         raise FileNotFoundError(f"{CONFIG_FILE} not found")
-    
+
     with open(config_file) as f:
         config_data = yaml.safe_load(f)
-    
+
     return Settings(**config_data)
 
 

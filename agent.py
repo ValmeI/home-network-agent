@@ -35,21 +35,20 @@ def get_custom_blocked_domains() -> set[str]:
     auth: tuple[str, str | None] | None = None
     if settings.adguard_username and settings.adguard_password:
         auth = (settings.adguard_username, settings.adguard_password)
-    
+
     try:
-        base_url = settings.adguard_url.replace("/control/querylog", "")
-        r = requests.get(f"{base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
+        r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
         r.raise_for_status()
         data = r.json()
-        
+
         user_rules = data.get("user_rules", [])
-        
+
         blocked = set()
         for rule in user_rules:
             if rule.startswith("||") and rule.endswith("^"):
                 domain = rule[2:-1]
                 blocked.add(domain)
-        
+
         logger.info(f"Loaded {len(blocked)} custom blocked domains from AdGuard")
         logger.info(f"Custom blocked domains: {sorted(blocked)}")
         return blocked
@@ -82,7 +81,7 @@ def _extract_domain_clients(queries: list[dict]) -> dict[str, Counter]:
         if domain not in domain_clients:
             domain_clients[domain] = Counter()
         domain_clients[domain][client_name] += 1
-    
+
     return domain_clients
 
 
@@ -91,7 +90,7 @@ def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked:
     for domain in domains:
         if domain in custom_blocked:
             continue
-            
+
         lower = domain.lower()
         count = counts[domain]
 
@@ -101,7 +100,7 @@ def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked:
 
         if any(x in lower for x in settings.suspicious_keywords):
             suspicious.append(domain)
-    
+
     return suspicious
 
 
@@ -116,10 +115,10 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
 
     blocked_count = len(queries) - len(allowed_queries)
     counts = Counter(domains)
-    
+
     seen = get_seen_domains()
     new_domains = [d for d in set(domains) if d not in seen and d not in custom_blocked]
-    
+
     domain_clients = _extract_domain_clients(allowed_queries)
     suspicious = _find_suspicious_domains(set(domains), counts, custom_blocked)
 
@@ -134,7 +133,11 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
         "suspicious_domains": suspicious[:10],
         "blocked_count": blocked_count,
         "time_context": f"Hour {hour}, {'night' if is_night else 'day'}",
-        "domain_clients": {domain: dict(clients.most_common(5)) for domain, clients in domain_clients.items() if (domain in suspicious or domain in new_domains) and domain not in custom_blocked},
+        "domain_clients": {
+            domain: dict(clients.most_common(5))
+            for domain, clients in domain_clients.items()
+            if (domain in suspicious or domain in new_domains) and domain not in custom_blocked
+        },
     }
 
 
@@ -143,7 +146,12 @@ def fetch_adguard_logs() -> dict:
     if settings.adguard_username and settings.adguard_password:
         auth = (settings.adguard_username, settings.adguard_password)
 
-    r = requests.get(settings.adguard_url, auth=auth, params={"limit": settings.adguard_query_limit}, timeout=settings.adguard_timeout)
+    r = requests.get(
+        f"{settings.adguard_base_url}{settings.adguard_url_querylog}",
+        auth=auth,
+        params={"limit": settings.adguard_query_limit},
+        timeout=settings.adguard_timeout,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -198,7 +206,6 @@ def _format_clients(clients: dict) -> str:
 
 
 def log_decision_results(decision: dict) -> None:
-
     domains_to_block = decision.get("domains_to_block", [])
     domains_to_watch = decision.get("domains_to_watch", [])
     domains_to_allow = decision.get("domains_to_allow", [])
@@ -232,21 +239,18 @@ def log_decision_results(decision: dict) -> None:
             print(f"  {Style.BRIGHT}{Fore.RED}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
 
-    print(f"{'='*100}")
+    print(f"{'=' * 100}")
     logger.success("Decision made")
-    
-    status = decision.get('decision', 'N/A')
-    status_colors = {
-        "ALLOW": Fore.GREEN,
-        "WATCH": Fore.YELLOW,
-        "ALERT": Fore.RED,
-    }
+
+    status = decision.get("decision", "N/A")
+    status_colors = {"ALLOW": Fore.GREEN, "WATCH": Fore.YELLOW, "ALERT": Fore.RED}
     color = status_colors.get(status, Fore.WHITE)
     print(f"{Style.BRIGHT}Status: {color}{status}{Style.RESET_ALL}")
-    
-    reason = decision.get('reason', 'N/A')
+
+    reason = decision.get("reason", "N/A")
     print(f"{color}Reason: {reason}{Style.RESET_ALL}")
-    print(f"{'='*100}")
+    print(f"{'=' * 100}")
+
 
 def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]:
     filtered_history = []
@@ -266,7 +270,7 @@ def main() -> None:
     try:
         logger.info("Fetching AdGuard query log...")
         log = fetch_adguard_logs()
-        
+
         custom_blocked = get_custom_blocked_domains()
 
         logger.info("Analyzing network activity...")
