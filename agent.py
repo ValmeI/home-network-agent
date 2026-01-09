@@ -147,7 +147,7 @@ def fetch_adguard_logs() -> dict:
         auth = (settings.adguard_username, settings.adguard_password)
 
     r = requests.get(
-        f"{settings.adguard_base_url}{settings.adguard_url_querylog}",
+        f"{settings.adguard_base_url}{settings.adguard_querylog}",
         auth=auth,
         params={"limit": settings.adguard_query_limit},
         timeout=settings.adguard_timeout,

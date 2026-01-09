@@ -8,7 +8,7 @@ CONFIG_FILE = "config.yaml"
 
 class Settings(BaseModel):
     adguard_base_url: str
-    adguard_url_querylog: str
+    adguard_querylog: str
     adguard_username: str
     adguard_password: str
     adguard_query_limit: int
