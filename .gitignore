@@ -6,6 +6,7 @@ venv/
 .venv
 .ruff_cache
 .vscode/
+.github/
 
 # Sensitive data - don't expose network activity
 decisions.jsonl
