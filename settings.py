@@ -20,6 +20,7 @@ class Settings(BaseModel):
     log_level: str
     trusted_domains: List[str]
     suspicious_keywords: List[str]
+    filter_out_keywords: List[str]
     min_frequency_trusted: int
 
 

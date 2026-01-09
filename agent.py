@@ -57,6 +57,17 @@ def get_custom_blocked_domains() -> set[str]:
         return set()
 
 
+def _should_filter_out(domain: str) -> bool:
+    for keyword in settings.filter_out_keywords:
+        if keyword in domain.lower():
+            return True
+    return False
+
+
+def _filter_domains(domains: list[str], custom_blocked: set[str]) -> list[str]:
+    return [d for d in domains if d not in custom_blocked and not _should_filter_out(d)]
+
+
 def _extract_domain_clients(queries: list[dict]) -> dict[str, Counter]:
     domain_clients = {}
     for q in queries:
@@ -100,7 +111,7 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
 
     allowed_queries = [q for q in queries if not q.get("reason", "").startswith("Filtered")]
     domains = [q.get("question", {}).get("name", "") for q in allowed_queries if "question" in q]
-    domains = [d for d in domains if d and "4days" not in d.lower()]
+    domains = [d for d in domains if d and not _should_filter_out(d)]
 
     blocked_count = len(queries) - len(allowed_queries)
     counts = Counter(domains)
@@ -241,11 +252,11 @@ def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]
     for decision in history:
         filtered_decision = decision.copy()
         if "domains_to_watch" in filtered_decision:
-            filtered_decision["domains_to_watch"] = [d for d in filtered_decision["domains_to_watch"] if d not in custom_blocked and "4days" not in d.lower()]
+            filtered_decision["domains_to_watch"] = _filter_domains(filtered_decision["domains_to_watch"], custom_blocked)
         if "domains_to_block" in filtered_decision:
-            filtered_decision["domains_to_block"] = [d for d in filtered_decision["domains_to_block"] if d not in custom_blocked and "4days" not in d.lower()]
+            filtered_decision["domains_to_block"] = _filter_domains(filtered_decision["domains_to_block"], custom_blocked)
         if "domains_to_allow" in filtered_decision:
-            filtered_decision["domains_to_allow"] = [d for d in filtered_decision["domains_to_allow"] if d not in custom_blocked and "4days" not in d.lower()]
+            filtered_decision["domains_to_allow"] = _filter_domains(filtered_decision["domains_to_allow"], custom_blocked)
         filtered_history.append(filtered_decision)
     return filtered_history
 
