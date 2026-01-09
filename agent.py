@@ -1,273 +1,51 @@
-import json
 import sys
-from collections import Counter
-from datetime import datetime
 
 import requests
-from colorama import Fore, Style, init as colorama_init
+from colorama import init as colorama_init
 from loguru import logger
-from openai import OpenAI
 
+from adguard_api import fetch_adguard_logs, get_custom_blocked_domains, unblock_domain_in_adguard
+from agent_state import load_agent_state, record_revert, save_agent_state, update_agent_state_with_decision
+from cli_interface import display_recommendations, execute_blocks, get_user_action
+from llm_analyzer import analyze_with_llm
 from logging_config import init_logging
+from network_analyzer import filter_history, summarize
 from settings import settings
 
 colorama_init(autoreset=True)
 init_logging(settings.log_level)
-client = OpenAI(api_key=settings.openai_api_key)
 
 
-def load_history() -> list[dict]:
-    try:
-        with open(settings.log_file) as f:
-            return [json.loads(l) for l in f]
-    except FileNotFoundError:
-        return []
-
-
-def get_seen_domains() -> set[str]:
-    """Get all domains from previous decisions"""
-    history = load_history()
-    return {str(d["domain"]) for d in history if "domain" in d and d["domain"]}
-
-
-def get_custom_blocked_domains() -> set[str]:
-    """Get domains from AdGuard custom filtering rules"""
-    auth: tuple[str, str | None] | None = None
-    if settings.adguard_username and settings.adguard_password:
-        auth = (settings.adguard_username, settings.adguard_password)
-
-    try:
-        r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
-        r.raise_for_status()
-        data = r.json()
-
-        user_rules = data.get("user_rules", [])
-
-        blocked = set()
-        for rule in user_rules:
-            if rule.startswith("||") and rule.endswith("^"):
-                domain = rule[2:-1]
-                blocked.add(domain)
-
-        logger.info(f"Loaded {len(blocked)} custom blocked domains from AdGuard")
-        logger.info(f"Custom blocked domains: {sorted(blocked)}")
-        return blocked
-    except Exception as e:
-        logger.error(f"Could not fetch custom blocked domains from AdGuard: {e}")
-        return set()
-
-
-def _should_filter_out(domain: str) -> bool:
-    for keyword in settings.filter_out_keywords:
-        if keyword in domain.lower():
-            return True
-    return False
-
-
-def _filter_domains(domains: list[str], custom_blocked: set[str]) -> list[str]:
-    return [d for d in domains if d not in custom_blocked and not _should_filter_out(d)]
-
-
-def _extract_domain_clients(queries: list[dict]) -> dict[str, Counter]:
-    domain_clients = {}
-    for q in queries:
-        domain = q.get("question", {}).get("name", "")
-        if not domain:
-            continue
-
-        client_info = q.get("client_info", {})
-        client_name = client_info.get("name", "") or q.get("client", "unknown")
-
-        if domain not in domain_clients:
-            domain_clients[domain] = Counter()
-        domain_clients[domain][client_name] += 1
-
-    return domain_clients
-
-
-def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked: set[str]) -> list[str]:
-    suspicious = []
-    for domain in domains:
-        if domain in custom_blocked:
-            continue
-
-        lower = domain.lower()
-        count = counts[domain]
-
-        is_trusted = any(pattern in lower for pattern in settings.trusted_domains)
-        if is_trusted and count >= settings.min_frequency_trusted:
-            continue
-
-        if any(x in lower for x in settings.suspicious_keywords):
-            suspicious.append(domain)
-
-    return suspicious
-
-
-def summarize(log: dict, custom_blocked: set[str]) -> dict:
-    queries = log.get("data", [])
-    if not queries:
-        return {"error": "No queries found"}
-
-    allowed_queries = [q for q in queries if not q.get("reason", "").startswith("Filtered")]
-    domains = [q.get("question", {}).get("name", "") for q in allowed_queries if "question" in q]
-    domains = [d for d in domains if d and not _should_filter_out(d)]
-
-    blocked_count = len(queries) - len(allowed_queries)
-    counts = Counter(domains)
-
-    seen = get_seen_domains()
-    new_domains = [d for d in set(domains) if d not in seen and d not in custom_blocked]
-
-    domain_clients = _extract_domain_clients(allowed_queries)
-    suspicious = _find_suspicious_domains(set(domains), counts, custom_blocked)
-
-    hour = datetime.now().hour
-    is_night = hour < 6 or hour > 23
-
-    return {
-        "top_domains": counts.most_common(5),
-        "total_queries": len(domains),
-        "unique_domains": len(set(domains)),
-        "new_domains": new_domains[:10],
-        "suspicious_domains": suspicious[:10],
-        "blocked_count": blocked_count,
-        "time_context": f"Hour {hour}, {'night' if is_night else 'day'}",
-        "domain_clients": {
-            domain: dict(clients.most_common(5))
-            for domain, clients in domain_clients.items()
-            if (domain in suspicious or domain in new_domains) and domain not in custom_blocked
-        },
-    }
-
-
-def fetch_adguard_logs() -> dict:
-    auth: tuple[str, str | None] | None = None
-    if settings.adguard_username and settings.adguard_password:
-        auth = (settings.adguard_username, settings.adguard_password)
-
-    r = requests.get(
-        f"{settings.adguard_base_url}{settings.adguard_querylog}",
-        auth=auth,
-        params={"limit": settings.adguard_query_limit},
-        timeout=settings.adguard_timeout,
-    )
-    r.raise_for_status()
-    return r.json()
-
-
-def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str]) -> dict:
-    try:
-        with open(settings.prompt_file) as f:
-            prompt_template = f.read()
-    except FileNotFoundError:
-        logger.error(f"Prompt file not found: {settings.prompt_file}")
-        raise
-
-    user_message = (
-        f"CURRENT STATS:\n{json.dumps(summary, indent=2)}\n\n"
-        f"PREVIOUS DECISIONS:\n{json.dumps(history, indent=2)}\n\n"
-        f"TRUSTED DOMAINS (should be ALLOW unless clearly malicious):\n{json.dumps(settings.trusted_domains, indent=2)}\n\n"
-        f"ALREADY BLOCKED IN ADGUARD (do NOT include in WATCH or BLOCK lists):\n{json.dumps(sorted(custom_blocked), indent=2)}\n\n"
-        "Analyze the current network activity and decide on the overall threat level or notable patterns."
-    )
-
-    resp = client.chat.completions.create(
-        model=settings.model,
-        messages=[{"role": "system", "content": prompt_template}, {"role": "user", "content": user_message}],
-        response_format={"type": "json_object"},
-    )
-
-    if not resp.choices[0].message.content:
-        raise ValueError("Empty response from LLM")
-
-    decision = json.loads(resp.choices[0].message.content)
-    decision["ts"] = datetime.now().isoformat()
-    decision["summary"] = {
-        "total_queries": summary["total_queries"],
-        "new_domains_count": len(summary["new_domains"]),
-        "top_domain": summary["top_domains"][0] if summary["top_domains"] else None,
-        "domain_clients": summary.get("domain_clients", {}),
-    }
-    return decision
-
-
-def save_decision(decision: dict) -> None:
-    with open(settings.log_file, "a") as f:
-        f.write(json.dumps(decision) + "\n")
-
-
-def _format_clients(clients: dict) -> str:
-    if not clients:
-        return ""
-    total = sum(clients.values())
-    parts = [f"{name}: {count}q" for name, count in clients.items()]
-    return f" ({', '.join(parts)}; total: {total}q)"
-
-
-def log_decision_results(decision: dict) -> None:
-    domains_to_block = decision.get("domains_to_block", [])
-    domains_to_watch = decision.get("domains_to_watch", [])
-    domains_to_allow = decision.get("domains_to_allow", [])
-    explanation = decision.get("explanation", {})
-    domain_clients = decision.get("summary", {}).get("domain_clients", {})
-
-    if isinstance(explanation, str):
-        explanation = {}
-
-    if domains_to_allow:
-        logger.success(f"\nSafe to ALLOW ({len(domains_to_allow)} domains):")
-        for domain in domains_to_allow:
-            reason = explanation.get(domain, "No reason provided")
-            clients_info = _format_clients(domain_clients.get(domain, {}))
-            print(f"  {Style.BRIGHT}{Fore.GREEN}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
-            print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
-
-    if domains_to_watch:
-        logger.info(f"\nWatching ({len(domains_to_watch)} domains):")
-        for domain in domains_to_watch:
-            reason = explanation.get(domain, "No reason provided")
-            clients_info = _format_clients(domain_clients.get(domain, {}))
-            print(f"  {Style.BRIGHT}{Fore.YELLOW}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
-            print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
-
-    if domains_to_block:
-        logger.warning(f"\nRecommended to BLOCK ({len(domains_to_block)} domains):")
-        for domain in domains_to_block:
-            reason = explanation.get(domain, "No reason provided")
-            clients_info = _format_clients(domain_clients.get(domain, {}))
-            print(f"  {Style.BRIGHT}{Fore.RED}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
-            print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
-
-    print(f"{'=' * 100}")
-    logger.success("Decision made")
-
-    status = decision.get("decision", "N/A")
-    status_colors = {"ALLOW": Fore.GREEN, "WATCH": Fore.YELLOW, "ALERT": Fore.RED}
-    color = status_colors.get(status, Fore.WHITE)
-    print(f"{Style.BRIGHT}Status: {color}{status}{Style.RESET_ALL}")
-
-    reason = decision.get("reason", "N/A")
-    print(f"{color}Reason: {reason}{Style.RESET_ALL}")
-    print(f"{'=' * 100}")
-
-
-def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]:
-    filtered_history = []
-    for decision in history:
-        filtered_decision = decision.copy()
-        if "domains_to_watch" in filtered_decision:
-            filtered_decision["domains_to_watch"] = _filter_domains(filtered_decision["domains_to_watch"], custom_blocked)
-        if "domains_to_block" in filtered_decision:
-            filtered_decision["domains_to_block"] = _filter_domains(filtered_decision["domains_to_block"], custom_blocked)
-        if "domains_to_allow" in filtered_decision:
-            filtered_decision["domains_to_allow"] = _filter_domains(filtered_decision["domains_to_allow"], custom_blocked)
-        filtered_history.append(filtered_decision)
-    return filtered_history
+def revert_domain(domain: str, reason: str) -> None:
+    """Revert a domain block and record the mistake for learning"""
+    logger.info(f"Reverting block for domain: {domain}")
+    logger.info(f"Reason: {reason}")
+    
+    if not unblock_domain_in_adguard(domain):
+        logger.error("Failed to unblock domain")
+        sys.exit(1)
+    
+    record_revert(domain, reason)
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "revert":
+        if len(sys.argv) < 4:
+            logger.error("Usage: python agent.py revert <domain> <reason>")
+            sys.exit(1)
+        domain = sys.argv[2]
+        reason = " ".join(sys.argv[3:])
+        revert_domain(domain, reason)
+        return
+
     try:
+        logger.info("Loading agent state...")
+        state = load_agent_state()
+        logger.info(f"Agent: {state['agent_meta']['name']} v{state['agent_meta']['version']}")
+        logger.info(f"Goal: {state['goal']['primary']}")
+        logger.info(f"Total decisions made: {state['memory']['stats']['total_decisions']}")
+        logger.info(f"Auto actions: {state['memory']['stats']['auto_actions']} | Reverts: {state['memory']['stats']['reverts']}")
+
         logger.info("Fetching AdGuard query log...")
         log = fetch_adguard_logs()
 
@@ -275,7 +53,6 @@ def main() -> None:
 
         logger.info("Analyzing network activity...")
         summary = summarize(log, custom_blocked)
-        logger.info(f"Suspicious domains found: {len(summary.get('suspicious_domains', []))}")
 
         if "error" in summary:
             logger.error(summary["error"])
@@ -286,21 +63,50 @@ def main() -> None:
         logger.info(f"New domains: {len(summary['new_domains'])}")
         logger.info(f"Already blocked by AdGuard: {summary['blocked_count']}")
 
-        history = load_history()[-settings.history_limit :]
-        filtered_history = _filter_history(history, custom_blocked)
+        history = state["memory"]["history"][-settings.history_limit :]
+        filtered_history = filter_history(history, custom_blocked)
 
         logger.info("Agent reasoning...")
-        decision = analyze_with_llm(summary, filtered_history, custom_blocked)
+        decision = analyze_with_llm(summary, filtered_history, custom_blocked, state["goal"])
 
-        save_decision(decision)
-        log_decision_results(decision)
+        domain_clients = decision.get("summary", {}).get("domain_clients", {})
+        indexed_domains = display_recommendations(decision, domain_clients)
+
+        action, selected_numbers = get_user_action(indexed_domains)
+        
+        if action == "quit":
+            logger.info("Exiting without changes")
+            sys.exit(0)
+        
+        if action == "skip":
+            logger.info("Skipping actions")
+            state["memory"]["stats"]["total_decisions"] += 1
+            state["memory"]["stats"]["manual_confirmations"] += 1
+            save_agent_state(state)
+            sys.exit(0)
+        
+        auto_blocked = []
+        if action == "block" and selected_numbers:
+            logger.info(f"Blocking {len(selected_numbers)} domains...")
+            block_reason = decision.get("reason", "Agent recommendation")[:60]
+            auto_blocked = execute_blocks(indexed_domains, selected_numbers, block_reason)
+            
+            if auto_blocked:
+                logger.success(f"Successfully blocked {len(auto_blocked)} domains")
+                for domain in auto_blocked:
+                    logger.success(f"  - {domain}")
+                logger.info(f"\nIf something breaks, revert with: python agent.py revert <domain> \"reason\"")
+
+        state = update_agent_state_with_decision(state, summary, decision, auto_blocked)
+        save_agent_state(state)
+        logger.success("Agent state updated")
 
     except requests.RequestException as e:
         logger.error(f"Network error: {e}")
         sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parsing error: {e}")
-        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("\nInterrupted by user")
+        sys.exit(0)
     except Exception as e:
         logger.exception("Unexpected error")
         sys.exit(1)
@@ -308,3 +114,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+def block_domain_in_adguard(domain: str) -> bool:
+    """Block domain in AdGuard by adding custom filtering rule"""

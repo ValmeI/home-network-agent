@@ -14,3 +14,6 @@ decisions.jsonl
 *.jsonl
 config.yaml.example
 .DS_Store
+
+# Agent state (persistent memory)
+agent_state.json
