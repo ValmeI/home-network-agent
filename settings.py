@@ -23,6 +23,7 @@ class Settings(BaseModel):
     suspicious_keywords: List[str]
     filter_out_keywords: List[str]
     min_frequency_trusted: int
+    max_workers: int
 
 
 def load_settings() -> Settings:

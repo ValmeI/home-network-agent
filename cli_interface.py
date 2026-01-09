@@ -24,7 +24,7 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
     
     indexed_domains = {}
     index = 1
-    
+    logger.info("Displaying agent recommendations...")
     print(f"\n{'='*100}")
     print(f"{Style.BRIGHT}AGENT RECOMMENDATIONS{Style.RESET_ALL}")
     print(f"{'='*100}\n")

@@ -1,4 +1,8 @@
 import sys
+import os
+import time
+import concurrent.futures
+from typing import Tuple
 
 import requests
 from colorama import init as colorama_init
@@ -14,6 +18,29 @@ from settings import settings
 
 colorama_init(autoreset=True)
 init_logging(settings.log_level)
+
+
+def fetch_adguard_data_parallel() -> Tuple[dict, set[str]]:
+    """Fetch AdGuard logs and blocked domains in parallel"""
+    start_time = time.time()
+    workers = settings.max_workers or os.cpu_count() or 4
+    logger.info(f"Starting parallel fetch with {workers} workers...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        logger.debug("Submitting fetch_adguard_logs task...")
+        future_logs = executor.submit(fetch_adguard_logs)
+        
+        logger.debug("Submitting get_custom_blocked_domains task...")
+        future_blocked = executor.submit(get_custom_blocked_domains)
+        
+        logger.debug("Waiting for results...")
+        log = future_logs.result()
+        custom_blocked = future_blocked.result()
+    
+    elapsed = time.time() - start_time
+    logger.info(f"Parallel fetch completed in {elapsed:.2f}s")
+    
+    return log, custom_blocked
 
 
 def revert_domain(domain: str, reason: str) -> None:
@@ -46,10 +73,8 @@ def main() -> None:
         logger.info(f"Total decisions made: {state['memory']['stats']['total_decisions']}")
         logger.info(f"Auto actions: {state['memory']['stats']['auto_actions']} | Reverts: {state['memory']['stats']['reverts']}")
 
-        logger.info("Fetching AdGuard query log...")
-        log = fetch_adguard_logs()
-
-        custom_blocked = get_custom_blocked_domains()
+        logger.info("Fetching data from AdGuard...")
+        log, custom_blocked = fetch_adguard_data_parallel()
 
         logger.info("Analyzing network activity...")
         summary = summarize(log, custom_blocked)
