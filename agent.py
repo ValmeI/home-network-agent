@@ -149,7 +149,16 @@ def _format_clients(clients: dict) -> str:
 
 def log_decision_results(decision: dict) -> None:
     logger.success("Decision made")
-    logger.info(f"Status: {decision.get('decision', 'N/A')}")
+    
+    status = decision.get('decision', 'N/A')
+    status_colors = {
+        "ALLOW": Fore.GREEN,
+        "WATCH": Fore.YELLOW,
+        "ALERT": Fore.RED,
+    }
+    color = status_colors.get(status, Fore.WHITE)
+    print(f"{Style.BRIGHT}Status: {color}{status}{Style.RESET_ALL}")
+    
     logger.info(f"Reason: {decision.get('reason', 'N/A')}")
 
     domains_to_block = decision.get("domains_to_block", [])
