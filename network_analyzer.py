@@ -12,8 +12,21 @@ def _should_filter_out(domain: str) -> bool:
     return False
 
 
-def _filter_domains(domains: list[str], custom_blocked: set[str]) -> list[str]:
-    return [d for d in domains if d not in custom_blocked and not _should_filter_out(d)]
+def _extract_domain_string(item) -> str | None:
+    """Extract domain string from either a string or dict format"""
+    if isinstance(item, dict):
+        return item.get("domain")
+    return item if isinstance(item, str) else None
+
+
+def _filter_domains(domains: list, custom_blocked: set[str]) -> list:
+    """Filter domains, handling both string and dict formats"""
+    filtered = []
+    for item in domains:
+        domain = _extract_domain_string(item)
+        if domain and domain not in custom_blocked and not _should_filter_out(domain):
+            filtered.append(item)
+    return filtered
 
 
 def _extract_domain_clients(queries: list[dict]) -> dict[str, Counter]:
