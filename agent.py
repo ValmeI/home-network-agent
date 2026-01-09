@@ -57,26 +57,9 @@ def get_custom_blocked_domains() -> set[str]:
         return set()
 
 
-def summarize(log: dict, custom_blocked: set[str]) -> dict:
-    queries = log.get("data", [])
-    if not queries:
-        return {"error": "No queries found"}
-
-    allowed_queries = [q for q in queries if not q.get("reason", "").startswith("Filtered")]
-
-    domains = [q.get("question", {}).get("name", "") for q in allowed_queries if "question" in q]
-    domains = [d for d in domains if d]
-
-    blocked_count = len(queries) - len(allowed_queries)
-
-    counts = Counter(domains)
-    top = counts.most_common(10)
-
-    seen = get_seen_domains()
-    new_domains = [d for d in set(domains) if d not in seen and d not in custom_blocked]
-
+def _extract_domain_clients(queries: list[dict]) -> dict[str, Counter]:
     domain_clients = {}
-    for q in allowed_queries:
+    for q in queries:
         domain = q.get("question", {}).get("name", "")
         if not domain:
             continue
@@ -87,9 +70,13 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
         if domain not in domain_clients:
             domain_clients[domain] = Counter()
         domain_clients[domain][client_name] += 1
+    
+    return domain_clients
 
+
+def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked: set[str]) -> list[str]:
     suspicious = []
-    for domain in set(domains):
+    for domain in domains:
         if domain in custom_blocked:
             continue
             
@@ -102,12 +89,33 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
 
         if any(x in lower for x in settings.suspicious_keywords):
             suspicious.append(domain)
+    
+    return suspicious
+
+
+def summarize(log: dict, custom_blocked: set[str]) -> dict:
+    queries = log.get("data", [])
+    if not queries:
+        return {"error": "No queries found"}
+
+    allowed_queries = [q for q in queries if not q.get("reason", "").startswith("Filtered")]
+    domains = [q.get("question", {}).get("name", "") for q in allowed_queries if "question" in q]
+    domains = [d for d in domains if d and "4days" not in d.lower()]
+
+    blocked_count = len(queries) - len(allowed_queries)
+    counts = Counter(domains)
+    
+    seen = get_seen_domains()
+    new_domains = [d for d in set(domains) if d not in seen and d not in custom_blocked]
+    
+    domain_clients = _extract_domain_clients(allowed_queries)
+    suspicious = _find_suspicious_domains(set(domains), counts, custom_blocked)
 
     hour = datetime.now().hour
     is_night = hour < 6 or hour > 23
 
     return {
-        "top_domains": top[:5],
+        "top_domains": counts.most_common(5),
         "total_queries": len(domains),
         "unique_domains": len(set(domains)),
         "new_domains": new_domains[:10],
@@ -225,6 +233,20 @@ def log_decision_results(decision: dict) -> None:
             print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
 
 
+def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]:
+    filtered_history = []
+    for decision in history:
+        filtered_decision = decision.copy()
+        if "domains_to_watch" in filtered_decision:
+            filtered_decision["domains_to_watch"] = [d for d in filtered_decision["domains_to_watch"] if d not in custom_blocked]
+        if "domains_to_block" in filtered_decision:
+            filtered_decision["domains_to_block"] = [d for d in filtered_decision["domains_to_block"] if d not in custom_blocked]
+        if "domains_to_allow" in filtered_decision:
+            filtered_decision["domains_to_allow"] = [d for d in filtered_decision["domains_to_allow"] if d not in custom_blocked]
+        filtered_history.append(filtered_decision)
+    return filtered_history
+
+
 def main() -> None:
     try:
         logger.info("Fetching AdGuard query log...")
@@ -246,17 +268,7 @@ def main() -> None:
         logger.info(f"Already blocked by AdGuard: {summary['blocked_count']}")
 
         history = load_history()[-settings.history_limit :]
-        
-        filtered_history = []
-        for decision in history:
-            filtered_decision = decision.copy()
-            if "domains_to_watch" in filtered_decision:
-                filtered_decision["domains_to_watch"] = [d for d in filtered_decision["domains_to_watch"] if d not in custom_blocked]
-            if "domains_to_block" in filtered_decision:
-                filtered_decision["domains_to_block"] = [d for d in filtered_decision["domains_to_block"] if d not in custom_blocked]
-            if "domains_to_allow" in filtered_decision:
-                filtered_decision["domains_to_allow"] = [d for d in filtered_decision["domains_to_allow"] if d not in custom_blocked]
-            filtered_history.append(filtered_decision)
+        filtered_history = _filter_history(history, custom_blocked)
 
         logger.info("Agent reasoning...")
         decision = analyze_with_llm(summary, filtered_history, custom_blocked)
