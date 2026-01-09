@@ -186,18 +186,6 @@ def _format_clients(clients: dict) -> str:
 
 
 def log_decision_results(decision: dict) -> None:
-    logger.success("Decision made")
-    
-    status = decision.get('decision', 'N/A')
-    status_colors = {
-        "ALLOW": Fore.GREEN,
-        "WATCH": Fore.YELLOW,
-        "ALERT": Fore.RED,
-    }
-    color = status_colors.get(status, Fore.WHITE)
-    print(f"{Style.BRIGHT}Status: {color}{status}{Style.RESET_ALL}")
-    
-    logger.info(f"Reason: {decision.get('reason', 'N/A')}")
 
     domains_to_block = decision.get("domains_to_block", [])
     domains_to_watch = decision.get("domains_to_watch", [])
@@ -232,6 +220,21 @@ def log_decision_results(decision: dict) -> None:
             print(f"  {Style.BRIGHT}{Fore.RED}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"    {Style.DIM}{reason}{Style.RESET_ALL}")
 
+        print(f"{'='*100}")
+        logger.success("Decision made")
+        
+        status = decision.get('decision', 'N/A')
+        status_colors = {
+            "ALLOW": Fore.GREEN,
+            "WATCH": Fore.YELLOW,
+            "ALERT": Fore.RED,
+        }
+        color = status_colors.get(status, Fore.WHITE)
+        print(f"{Style.BRIGHT}Status: {color}{status}{Style.RESET_ALL}")
+        
+        reason = decision.get('reason', 'N/A')
+        print(f"{color}Reason: {reason}{Style.RESET_ALL}")
+        print(f"{'='*100}")
 
 def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]:
     filtered_history = []
