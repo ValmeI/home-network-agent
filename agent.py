@@ -103,8 +103,7 @@ def summarize(log: dict, custom_blocked: set[str]) -> dict:
         if any(x in lower for x in settings.suspicious_keywords):
             suspicious.append(domain)
 
-    now = datetime.now()
-    hour = now.hour
+    hour = datetime.now().hour
     is_night = hour < 6 or hour > 23
 
     return {
