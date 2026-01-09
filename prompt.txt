@@ -49,8 +49,12 @@ Return STRICT JSON only:
   "decision": "ALLOW | WATCH | ALERT",
   "reason": "short explanation of overall assessment",
   "confidence": 0.0-1.0,
-  "domains_to_block": ["domain1.com"],
-  "domains_to_watch": ["domain2.com"],
+  "domains_to_block": [
+    {"domain": "domain1.com", "confidence": 0.85}
+  ],
+  "domains_to_watch": [
+    {"domain": "domain2.com", "confidence": 0.60}
+  ],
   "domains_to_allow": ["domain3.com"],
   "explanation": {
     "domain1.com": "brief reason why this domain should be blocked/watched/allowed",
@@ -58,8 +62,8 @@ Return STRICT JSON only:
   }
 }
 
-CONFIDENCE scoring (0.0-1.0):
+CONFIDENCE scoring per domain (0.0-1.0):
 - 0.9-1.0: Known malicious domains, clear tracking/ads patterns
-- 0.7-0.89: Suspicious patterns, likely unnecessary telemetry
+- 0.7-0.89: Suspicious patterns, likely unnecessary telemetry (auto-block threshold)
 - 0.5-0.69: Uncertain - could be legitimate or unwanted
 - 0.0-0.49: Low confidence - needs human review

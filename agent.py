@@ -95,7 +95,7 @@ def main() -> None:
                 logger.success(f"Successfully blocked {len(auto_blocked)} domains")
                 for domain in auto_blocked:
                     logger.success(f"  - {domain}")
-                logger.info(f"\nIf something breaks, revert with: python agent.py revert <domain> \"reason\"")
+                logger.warning(f"If something breaks, revert with: python agent.py revert <domain> \"reason\"")
 
         state = update_agent_state_with_decision(state, summary, decision, auto_blocked)
         save_agent_state(state)
@@ -114,8 +114,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-
-def block_domain_in_adguard(domain: str) -> bool:
-    """Block domain in AdGuard by adding custom filtering rule"""

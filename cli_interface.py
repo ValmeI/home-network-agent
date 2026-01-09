@@ -31,23 +31,43 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
     
     if domains_to_block:
         print(f"{Style.BRIGHT}{Fore.RED}RECOMMENDED TO BLOCK:{Style.RESET_ALL}")
-        for domain in domains_to_block:
+        for item in domains_to_block:
+            if isinstance(item, dict):
+                domain = item.get("domain")
+                confidence = item.get("confidence", 0.0)
+            else:
+                domain = item
+                confidence = 0.0
+            
+            confidence_color = Fore.GREEN if confidence >= 0.7 else Fore.YELLOW if confidence >= 0.5 else Fore.RED
+            confidence_badge = f"{confidence_color}[{confidence:.2f}]{Style.RESET_ALL}"
+            
             reason = explanation.get(domain, "No reason provided")
             clients_info = _format_clients(domain_clients.get(domain, {}))
-            print(f"  [{index}] {Fore.RED}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
+            print(f"  [{index}] {Fore.RED}{domain}{Style.RESET_ALL} {confidence_badge} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"      {Style.DIM}{reason}{Style.RESET_ALL}")
-            indexed_domains[index] = {"domain": domain, "action": "block"}
+            indexed_domains[index] = {"domain": domain, "action": "block", "confidence": confidence}
             index += 1
         print()
     
     if domains_to_watch:
         print(f"{Style.BRIGHT}{Fore.YELLOW}RECOMMENDED TO WATCH:{Style.RESET_ALL}")
-        for domain in domains_to_watch:
+        for item in domains_to_watch:
+            if isinstance(item, dict):
+                domain = item.get("domain")
+                confidence = item.get("confidence", 0.0)
+            else:
+                domain = item
+                confidence = 0.0
+            
+            confidence_color = Fore.YELLOW if confidence >= 0.5 else Fore.RED
+            confidence_badge = f"{confidence_color}[{confidence:.2f}]{Style.RESET_ALL}"
+            
             reason = explanation.get(domain, "No reason provided")
             clients_info = _format_clients(domain_clients.get(domain, {}))
-            print(f"  [{index}] {Fore.YELLOW}{domain}{Style.RESET_ALL} {Style.DIM}{clients_info}{Style.RESET_ALL}")
+            print(f"  [{index}] {Fore.YELLOW}{domain}{Style.RESET_ALL} {confidence_badge} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"      {Style.DIM}{reason}{Style.RESET_ALL}")
-            indexed_domains[index] = {"domain": domain, "action": "watch"}
+            indexed_domains[index] = {"domain": domain, "action": "watch", "confidence": confidence}
             index += 1
         print()
     
