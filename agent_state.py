@@ -6,6 +6,13 @@ from loguru import logger
 AGENT_STATE_FILE = "agent_state.json"
 
 
+def _extract_domain_string(item) -> str | None:
+    """Extract domain string from either a string or dict format"""
+    if isinstance(item, dict):
+        return item.get("domain")
+    return item if isinstance(item, str) else None
+
+
 def load_agent_state() -> dict:
     """Load agent state from file or initialize default state"""
     try:
@@ -57,9 +64,11 @@ def get_seen_domains() -> set[str]:
     seen = set()
     for entry in history:
         decision = entry.get("decision", {})
-        seen.update(decision.get("domains_to_block", []))
-        seen.update(decision.get("domains_to_watch", []))
-        seen.update(decision.get("domains_to_allow", []))
+        for domain_list_key in ["domains_to_block", "domains_to_watch", "domains_to_allow"]:
+            for item in decision.get(domain_list_key, []):
+                domain = _extract_domain_string(item)
+                if domain:
+                    seen.add(domain)
     return seen
 
 
@@ -97,7 +106,12 @@ def update_agent_state_with_decision(state: dict, summary: dict, decision: dict,
     if "domain_history" not in state["memory"]:
         state["memory"]["domain_history"] = {}
 
-    for domain in decision.get("domains_to_block", []):
+    domains_from_decision = decision.get("domains_to_block", [])
+    for item in domains_from_decision:
+        domain = _extract_domain_string(item)
+        if not domain:
+            continue
+            
         if domain not in state["memory"]["domain_history"]:
             state["memory"]["domain_history"][domain] = {"actions": []}
         
@@ -108,7 +122,12 @@ def update_agent_state_with_decision(state: dict, summary: dict, decision: dict,
             "reason": decision.get("reason", "N/A"),
         })
 
-    for domain in decision.get("domains_to_watch", []):
+    domains_to_watch = decision.get("domains_to_watch", [])
+    for item in domains_to_watch:
+        domain = _extract_domain_string(item)
+        if not domain:
+            continue
+            
         if domain not in state["memory"]["domain_history"]:
             state["memory"]["domain_history"][domain] = {"actions": []}
         state["memory"]["domain_history"][domain]["actions"].append({
