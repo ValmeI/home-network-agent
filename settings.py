@@ -28,13 +28,6 @@ class Settings(BaseSettings):
         "googleapis.com",
         "cloudflare.com",
         "akamai.net",
-        "gitkraken.com",
-        "synology.com",
-        "plex.tv",
-        "dropboxapi.com",
-        "spaceship.dev",
-        "qdrant.io",
-        "tailscale.io",
     ]
 
     suspicious_keywords: List[str] = ["telemetry", "analytics", "metric", "track", "pixel", "beacon", "ads", "doubleclick"]

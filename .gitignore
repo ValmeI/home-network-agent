@@ -5,3 +5,8 @@ __pycache__/
 venv/
 .venv
 .ruff_cache
+.vscode/
+
+# Sensitive data - don't expose network activity
+decisions.jsonl
+*.jsonl
