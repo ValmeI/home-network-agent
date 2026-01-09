@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+config.yaml
 .venv/
 venv/
 .venv
@@ -11,3 +12,4 @@ venv/
 # Sensitive data - don't expose network activity
 decisions.jsonl
 *.jsonl
+config.yaml.example

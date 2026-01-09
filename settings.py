@@ -1,10 +1,12 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import yaml
+from pathlib import Path
 from typing import List
+from pydantic import BaseModel
+
+CONFIG_FILE = "config.yaml"
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-
+class Settings(BaseModel):
     adguard_url: str
     adguard_username: str
     adguard_password: str
@@ -16,23 +18,20 @@ class Settings(BaseSettings):
     log_file: str
     prompt_file: str
     log_level: str
-
-    # Domain filtering patterns
-    trusted_domains: List[str] = [
-        "github.com",
-        "githubusercontent.com",
-        "microsoft.com",
-        "msftncsi.com",
-        "apple.com",
-        "gstatic.com",
-        "googleapis.com",
-        "cloudflare.com",
-        "akamai.net",
-    ]
-
-    suspicious_keywords: List[str] = ["telemetry", "analytics", "metric", "track", "pixel", "beacon", "ads", "doubleclick"]
-
-    min_frequency_trusted: int = 30  # Minimum query count to consider a domain as "actively used"
+    trusted_domains: List[str]
+    suspicious_keywords: List[str]
+    min_frequency_trusted: int
 
 
-settings = Settings()
+def load_settings() -> Settings:
+    config_file = Path(CONFIG_FILE)
+    if not config_file.exists():
+        raise FileNotFoundError(f"{CONFIG_FILE} not found")
+    
+    with open(config_file) as f:
+        config_data = yaml.safe_load(f)
+    
+    return Settings(**config_data)
+
+
+settings = load_settings()
