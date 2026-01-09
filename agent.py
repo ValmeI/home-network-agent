@@ -238,11 +238,11 @@ def _filter_history(history: list[dict], custom_blocked: set[str]) -> list[dict]
     for decision in history:
         filtered_decision = decision.copy()
         if "domains_to_watch" in filtered_decision:
-            filtered_decision["domains_to_watch"] = [d for d in filtered_decision["domains_to_watch"] if d not in custom_blocked]
+            filtered_decision["domains_to_watch"] = [d for d in filtered_decision["domains_to_watch"] if d not in custom_blocked and "4days" not in d.lower()]
         if "domains_to_block" in filtered_decision:
-            filtered_decision["domains_to_block"] = [d for d in filtered_decision["domains_to_block"] if d not in custom_blocked]
+            filtered_decision["domains_to_block"] = [d for d in filtered_decision["domains_to_block"] if d not in custom_blocked and "4days" not in d.lower()]
         if "domains_to_allow" in filtered_decision:
-            filtered_decision["domains_to_allow"] = [d for d in filtered_decision["domains_to_allow"] if d not in custom_blocked]
+            filtered_decision["domains_to_allow"] = [d for d in filtered_decision["domains_to_allow"] if d not in custom_blocked and "4days" not in d.lower()]
         filtered_history.append(filtered_decision)
     return filtered_history
 
