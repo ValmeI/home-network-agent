@@ -26,21 +26,21 @@ def fetch_adguard_data_parallel() -> Tuple[dict, set[str]]:
     start_time = time.time()
     workers = settings.max_workers or os.cpu_count() or 4
     logger.info(f"Starting parallel fetch with {workers} workers...")
-    
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         logger.debug("Submitting fetch_adguard_logs task...")
         future_logs = executor.submit(fetch_adguard_logs)
-        
+
         logger.debug("Submitting get_custom_blocked_domains task...")
         future_blocked = executor.submit(get_custom_blocked_domains)
-        
+
         logger.debug("Waiting for results...")
         log = future_logs.result()
         custom_blocked = future_blocked.result()
-    
+
     elapsed = time.time() - start_time
     logger.info(f"Parallel fetch completed in {elapsed:.2f}s")
-    
+
     return log, custom_blocked
 
 
@@ -48,11 +48,11 @@ def revert_domain(domain: str, reason: str) -> None:
     """Revert a domain block and record the mistake for learning"""
     logger.info(f"Reverting block for domain: {domain}")
     logger.info(f"Reason: {reason}")
-    
+
     if not unblock_domain_in_adguard(domain):
         logger.error("Failed to unblock domain")
         sys.exit(1)
-    
+
     record_revert(domain, reason)
 
 
@@ -74,7 +74,7 @@ def print_summary_stats(summary: dict) -> None:
 
 def handle_auto_mode(indexed_domains: dict, state: dict, block_all: bool = False) -> list[str]:
     """Handle automatic blocking mode for high-confidence domains
-    
+
     Args:
         indexed_domains: Dictionary of indexed domain recommendations
         state: Agent state
@@ -82,61 +82,59 @@ def handle_auto_mode(indexed_domains: dict, state: dict, block_all: bool = False
     """
     if settings.auto_block_threshold <= 0:
         return []
-    
+
     if block_all:
-        high_confidence_domains = [
-            idx for idx, domain_info in indexed_domains.items()
-            if domain_info["confidence"] >= settings.auto_block_threshold
-        ]
+        high_confidence_domains = [idx for idx, domain_info in indexed_domains.items() if domain_info["confidence"] >= settings.auto_block_threshold]
         mode_desc = "ALL (block + watch)"
     else:
         high_confidence_domains = [
-            idx for idx, domain_info in indexed_domains.items()
+            idx
+            for idx, domain_info in indexed_domains.items()
             if domain_info["action"] == "block" and domain_info["confidence"] >= settings.auto_block_threshold
         ]
         mode_desc = "from BLOCK list"
-    
+
     if not high_confidence_domains:
         logger.info(f"AUTO MODE: No domains meet auto-block threshold {mode_desc}")
         return []
-    
+
     logger.warning(f"AUTO MODE: Blocking {len(high_confidence_domains)} high-confidence domains {mode_desc}")
     block_reason = f"Auto-blocked (confidence >= {settings.auto_block_threshold})"
     auto_blocked = execute_blocks(indexed_domains, high_confidence_domains, block_reason)
-    
+
     if auto_blocked:
         logger.success(f"Successfully auto-blocked {len(auto_blocked)} domains")
         for domain in auto_blocked:
             logger.success(f"  - {domain}")
         state["memory"]["stats"]["auto_actions"] += len(auto_blocked)
-    
+
     return auto_blocked
 
 
 def handle_interactive_mode(indexed_domains: dict, decision: dict) -> list[str]:
     """Handle interactive mode where user selects domains to block"""
     action, selected_numbers = get_user_action(indexed_domains)
-    
+
     if action == "quit":
         logger.info("Exiting without changes")
         sys.exit(0)
-    
+
     if action == "skip":
         logger.info("Skipping actions")
         return []
-    
+
     if action == "block" and selected_numbers:
         logger.info(f"Blocking {len(selected_numbers)} domains...")
         block_reason = decision.get("reason", "Agent recommendation")[:60]
         auto_blocked = execute_blocks(indexed_domains, selected_numbers, block_reason)
-        
+
         if auto_blocked:
             logger.success(f"Successfully blocked {len(auto_blocked)} domains")
             for domain in auto_blocked:
                 logger.success(f"  - {domain}")
-        
+
         return auto_blocked
-    
+
     return []
 
 
@@ -151,10 +149,12 @@ def parse_args() -> argparse.Namespace:
                 python agent.py --auto-all                         Auto-block ALL high-confidence domains (block + watch)
                 python agent.py revert example.com "broke service" Unblock domain and record reason
         """,
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--auto", action="store_true", help=f"Automatically block domains from BLOCK list with confidence >= {settings.auto_block_threshold}")
-    parser.add_argument("--auto-all", action="store_true", help=f"Automatically block ALL domains (block + watch) with confidence >= {settings.auto_block_threshold}")
+    parser.add_argument(
+        "--auto-all", action="store_true", help=f"Automatically block ALL domains (block + watch) with confidence >= {settings.auto_block_threshold}"
+    )
     parser.add_argument("command", nargs="?", help="Command: revert")
     parser.add_argument("domain", nargs="?", help="Domain to revert (used with revert command)")
     parser.add_argument("reason", nargs="*", help="Reason for reverting (used with revert command)")
@@ -163,7 +163,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    
+
     if args.command == "revert":
         if not args.domain or not args.reason:
             logger.error("Usage: python agent.py revert <domain> <reason>")
@@ -208,7 +208,7 @@ def main() -> None:
             auto_blocked = handle_auto_mode(indexed_domains, state, block_all=args.auto_all)
         else:
             auto_blocked = handle_interactive_mode(indexed_domains, decision)
-            
+
             if not auto_blocked:
                 state["memory"]["stats"]["total_decisions"] += 1
                 state["memory"]["stats"]["manual_confirmations"] += 1
@@ -216,7 +216,7 @@ def main() -> None:
                 sys.exit(0)
 
         if auto_blocked:
-            logger.warning(f"If something breaks, revert with: python agent.py revert <domain> \"reason\"")
+            logger.warning(f'If something breaks, revert with: python agent.py revert <domain> "reason"')
 
         state = update_agent_state_with_decision(state, summary, decision, auto_blocked)
         save_agent_state(state)

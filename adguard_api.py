@@ -25,15 +25,15 @@ def get_custom_blocked_domains() -> set[str]:
                 blocked.add(domain)
 
         logger.info(f"Loaded {len(blocked)} custom rules for blocked domains from AdGuard")
-        
+
         if blocked:
-            print(f"\n{'='*100}")
+            print(f"\n{'=' * 100}")
             print(f"{Style.BRIGHT}{Fore.CYAN}ALREADY BLOCKED IN ADGUARD ({len(blocked)} domains){Style.RESET_ALL}")
-            print(f"{'='*100}")
+            print(f"{'=' * 100}")
             for domain in sorted(blocked):
                 print(f"  {Fore.CYAN}{domain}{Style.RESET_ALL}")
-            print(f"{'='*100}\n")
-        
+            print(f"{'=' * 100}\n")
+
         return blocked
     except Exception as e:
         logger.error(f"Could not fetch custom blocked domains from AdGuard: {e}")
@@ -48,31 +48,26 @@ def block_domain_in_adguard(domain: str, reason: str = "") -> bool:
 
     try:
         from datetime import datetime
-        
+
         r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
         r.raise_for_status()
         data = r.json()
-        
+
         user_rules = data.get("user_rules", [])
         new_rule = f"||{domain}^"
-        
+
         if new_rule in user_rules:
             logger.info(f"Domain {domain} already blocked")
             return True
-        
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         reason_short = reason[:60] if reason else "Agent blocked"
         comment = f"! {timestamp} | {reason_short}"
-        
+
         user_rules.append(comment)
         user_rules.append(new_rule)
-        
-        r = requests.post(
-            f"{settings.adguard_base_url}/control/filtering/set_rules",
-            auth=auth,
-            json={"rules": user_rules},
-            timeout=settings.adguard_timeout,
-        )
+
+        r = requests.post(f"{settings.adguard_base_url}/control/filtering/set_rules", auth=auth, json={"rules": user_rules}, timeout=settings.adguard_timeout)
         r.raise_for_status()
         logger.success(f"Blocked domain: {domain}")
         return True
@@ -91,22 +86,17 @@ def unblock_domain_in_adguard(domain: str) -> bool:
         r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
         r.raise_for_status()
         data = r.json()
-        
+
         user_rules = data.get("user_rules", [])
         rule_to_remove = f"||{domain}^"
-        
+
         if rule_to_remove not in user_rules:
             logger.warning(f"Domain {domain} not in blocked list")
             return False
-        
+
         user_rules.remove(rule_to_remove)
-        
-        r = requests.post(
-            f"{settings.adguard_base_url}/control/filtering/set_rules",
-            auth=auth,
-            json={"rules": user_rules},
-            timeout=settings.adguard_timeout,
-        )
+
+        r = requests.post(f"{settings.adguard_base_url}/control/filtering/set_rules", auth=auth, json={"rules": user_rules}, timeout=settings.adguard_timeout)
         r.raise_for_status()
         logger.success(f"Unblocked domain: {domain}")
         return True
@@ -122,10 +112,7 @@ def fetch_adguard_logs() -> dict:
         auth = (settings.adguard_username, settings.adguard_password)
 
     r = requests.get(
-        f"{settings.adguard_base_url}{settings.adguard_querylog}",
-        auth=auth,
-        params={"limit": settings.adguard_query_limit},
-        timeout=settings.adguard_timeout,
+        f"{settings.adguard_base_url}{settings.adguard_querylog}", auth=auth, params={"limit": settings.adguard_query_limit}, timeout=settings.adguard_timeout
     )
     r.raise_for_status()
     return r.json()

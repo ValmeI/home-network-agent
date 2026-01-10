@@ -24,11 +24,7 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
     domain_history = state.get("memory", {}).get("domain_history", {})
     reflections = state.get("memory", {}).get("reflections", [])[-3:]
 
-    learning_context = {
-        "stats": stats,
-        "domain_history": {k: v for k, v in list(domain_history.items())[-20:]},
-        "reflections": reflections,
-    }
+    learning_context = {"stats": stats, "domain_history": {k: v for k, v in list(domain_history.items())[-20:]}, "reflections": reflections}
 
     user_message = (
         f"AGENT GOAL:\n{json.dumps(goal, indent=2)}\n\n"

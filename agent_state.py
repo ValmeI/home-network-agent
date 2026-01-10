@@ -21,18 +21,10 @@ def load_agent_state() -> dict:
     except FileNotFoundError:
         logger.info("No agent state found, initializing default state")
         default_state = {
-            "agent_meta": {
-                "name": "home-network-agent",
-                "version": "0.1",
-                "started_at": datetime.now().isoformat(),
-            },
+            "agent_meta": {"name": "home-network-agent", "version": "0.1", "started_at": datetime.now().isoformat()},
             "goal": {
                 "primary": "Reduce unwanted tracking while minimizing service breakage",
-                "constraints": [
-                    "Avoid blocking essential services",
-                    "Prefer reversible actions",
-                    "Require confidence >= 0.7 for auto-action",
-                ],
+                "constraints": ["Avoid blocking essential services", "Prefer reversible actions", "Require confidence >= 0.7 for auto-action"],
             },
             "memory": {
                 "history": [],
@@ -96,11 +88,7 @@ def update_agent_state_with_decision(state: dict, summary: dict, decision: dict,
         "timestamp": timestamp,
     }
 
-    history_entry = {
-        "timestamp": timestamp,
-        "observations": state["last_decision"]["observations"],
-        "decision": state["last_decision"]["decision"],
-    }
+    history_entry = {"timestamp": timestamp, "observations": state["last_decision"]["observations"], "decision": state["last_decision"]["decision"]}
     state["memory"]["history"].append(history_entry)
 
     if "domain_history" not in state["memory"]:
@@ -111,35 +99,29 @@ def update_agent_state_with_decision(state: dict, summary: dict, decision: dict,
         domain = _extract_domain_string(item)
         if not domain:
             continue
-            
+
         if domain not in state["memory"]["domain_history"]:
             state["memory"]["domain_history"][domain] = {"actions": []}
-        
+
         action_type = "auto_blocked" if domain in auto_blocked else "recommended_block"
-        state["memory"]["domain_history"][domain]["actions"].append({
-            "action": action_type,
-            "timestamp": timestamp,
-            "reason": decision.get("reason", "N/A"),
-        })
+        state["memory"]["domain_history"][domain]["actions"].append({"action": action_type, "timestamp": timestamp, "reason": decision.get("reason", "N/A")})
 
     domains_to_watch = decision.get("domains_to_watch", [])
     for item in domains_to_watch:
         domain = _extract_domain_string(item)
         if not domain:
             continue
-            
+
         if domain not in state["memory"]["domain_history"]:
             state["memory"]["domain_history"][domain] = {"actions": []}
-        state["memory"]["domain_history"][domain]["actions"].append({
-            "action": "watch",
-            "timestamp": timestamp,
-        })
+        state["memory"]["domain_history"][domain]["actions"].append({"action": "watch", "timestamp": timestamp})
 
     state["memory"]["stats"]["total_decisions"] += 1
     if auto_blocked:
         state["memory"]["stats"]["auto_actions"] += len(auto_blocked)
 
     from settings import settings
+
     if len(state["memory"]["history"]) > settings.history_limit:
         state["memory"]["history"] = state["memory"]["history"][-settings.history_limit :]
 
@@ -150,34 +132,26 @@ def record_revert(domain: str, reason: str) -> None:
     """Record a domain revert in agent state"""
     state = load_agent_state()
     timestamp = datetime.now().isoformat()
-    
+
     if "domain_history" not in state["memory"]:
         state["memory"]["domain_history"] = {}
-    
+
     if domain not in state["memory"]["domain_history"]:
         state["memory"]["domain_history"][domain] = {"actions": []}
-    
-    state["memory"]["domain_history"][domain]["actions"].append({
-        "action": "reverted",
-        "timestamp": timestamp,
-        "reason": reason,
-    })
-    
+
+    state["memory"]["domain_history"][domain]["actions"].append({"action": "reverted", "timestamp": timestamp, "reason": reason})
+
     state["memory"]["stats"]["reverts"] += 1
-    
+
     if "reflections" not in state["memory"]:
         state["memory"]["reflections"] = []
-    
-    reflection = {
-        "timestamp": timestamp,
-        "domain": domain,
-        "lesson": f"Blocking {domain} was a mistake: {reason}",
-    }
+
+    reflection = {"timestamp": timestamp, "domain": domain, "lesson": f"Blocking {domain} was a mistake: {reason}"}
     state["memory"]["reflections"].append(reflection)
-    
+
     if len(state["memory"]["reflections"]) > 10:
         state["memory"]["reflections"] = state["memory"]["reflections"][-10:]
-    
+
     save_agent_state(state)
     logger.success(f"Domain {domain} revert recorded and lesson learned")
     logger.info(f"Total reverts: {state['memory']['stats']['reverts']}")
