@@ -39,9 +39,15 @@ python agent.py
 ```
 
 ### Automatic Mode
-Automatically block domains with confidence >= threshold (default 0.9):
+Automatically block domains from the BLOCK list with confidence >= threshold (default 0.9):
 ```bash
 python agent.py --auto
+```
+
+### Aggressive Automatic Mode
+Automatically block ALL domains (block + watch) with confidence >= threshold:
+```bash
+python agent.py --auto-all
 ```
 
 ### Revert a Block

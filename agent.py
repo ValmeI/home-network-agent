@@ -62,9 +62,6 @@ def print_agent_stats(state: dict, is_auto_mode: bool) -> None:
     logger.info(f"Goal: {state['goal']['primary']}")
     logger.info(f"Total decisions made: {state['memory']['stats']['total_decisions']}")
     logger.info(f"Auto actions: {state['memory']['stats']['auto_actions']} | Reverts: {state['memory']['stats']['reverts']}")
-    
-    if is_auto_mode:
-        logger.info(f"AUTO MODE: Will block domains with confidence >= {settings.auto_block_threshold}")
 
 
 def print_summary_stats(summary: dict) -> None:
@@ -75,21 +72,35 @@ def print_summary_stats(summary: dict) -> None:
     logger.info(f"Already blocked by AdGuard: {summary['blocked_count']}")
 
 
-def handle_auto_mode(indexed_domains: dict, state: dict) -> list[str]:
-    """Handle automatic blocking mode for high-confidence domains"""
+def handle_auto_mode(indexed_domains: dict, state: dict, block_all: bool = False) -> list[str]:
+    """Handle automatic blocking mode for high-confidence domains
+    
+    Args:
+        indexed_domains: Dictionary of indexed domain recommendations
+        state: Agent state
+        block_all: If True, blocks all high-confidence domains. If False, only blocks from BLOCK list
+    """
     if settings.auto_block_threshold <= 0:
         return []
     
-    high_confidence_domains = [
-        idx for idx, domain_info in indexed_domains.items()
-        if domain_info["confidence"] >= settings.auto_block_threshold
-    ]
+    if block_all:
+        high_confidence_domains = [
+            idx for idx, domain_info in indexed_domains.items()
+            if domain_info["confidence"] >= settings.auto_block_threshold
+        ]
+        mode_desc = "ALL (block + watch)"
+    else:
+        high_confidence_domains = [
+            idx for idx, domain_info in indexed_domains.items()
+            if domain_info["action"] == "block" and domain_info["confidence"] >= settings.auto_block_threshold
+        ]
+        mode_desc = "from BLOCK list"
     
     if not high_confidence_domains:
-        logger.info("AUTO MODE: No domains meet auto-block threshold")
+        logger.info(f"AUTO MODE: No domains meet auto-block threshold {mode_desc}")
         return []
     
-    logger.warning(f"AUTO MODE: Blocking {len(high_confidence_domains)} high-confidence domains")
+    logger.warning(f"AUTO MODE: Blocking {len(high_confidence_domains)} high-confidence domains {mode_desc}")
     block_reason = f"Auto-blocked (confidence >= {settings.auto_block_threshold})"
     auto_blocked = execute_blocks(indexed_domains, high_confidence_domains, block_reason)
     
@@ -136,12 +147,14 @@ def parse_args() -> argparse.Namespace:
         epilog="""
                 examples:
                 python agent.py                                    Run in interactive mode
-                python agent.py --auto                             Auto-block high-confidence domains
+                python agent.py --auto                             Auto-block high-confidence domains from BLOCK list
+                python agent.py --auto-all                         Auto-block ALL high-confidence domains (block + watch)
                 python agent.py revert example.com "broke service" Unblock domain and record reason
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--auto", action="store_true", help=f"Automatically block domains with confidence >= {settings.auto_block_threshold}")
+    parser.add_argument("--auto", action="store_true", help=f"Automatically block domains from BLOCK list with confidence >= {settings.auto_block_threshold}")
+    parser.add_argument("--auto-all", action="store_true", help=f"Automatically block ALL domains (block + watch) with confidence >= {settings.auto_block_threshold}")
     parser.add_argument("command", nargs="?", help="Command: revert")
     parser.add_argument("domain", nargs="?", help="Domain to revert (used with revert command)")
     parser.add_argument("reason", nargs="*", help="Reason for reverting (used with revert command)")
@@ -163,7 +176,12 @@ def main() -> None:
     try:
         logger.info("Loading agent state...")
         state = load_agent_state()
-        print_agent_stats(state, args.auto)
+        print_agent_stats(state, args.auto or args.auto_all)
+
+        if args.auto:
+            logger.info(f"AUTO MODE: Will block domains from BLOCK list with confidence >= {settings.auto_block_threshold}")
+        elif args.auto_all:
+            logger.info(f"AUTO MODE (ALL): Will block ALL domains with confidence >= {settings.auto_block_threshold}")
 
         logger.info("Fetching data from AdGuard...")
         log, custom_blocked = fetch_adguard_data_parallel()
@@ -186,8 +204,8 @@ def main() -> None:
         domain_clients = decision.get("summary", {}).get("domain_clients", {})
         indexed_domains = display_recommendations(decision, domain_clients)
 
-        if args.auto:
-            auto_blocked = handle_auto_mode(indexed_domains, state)
+        if args.auto or args.auto_all:
+            auto_blocked = handle_auto_mode(indexed_domains, state, block_all=args.auto_all)
         else:
             auto_blocked = handle_interactive_mode(indexed_domains, decision)
             
