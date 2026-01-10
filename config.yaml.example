@@ -1,0 +1,49 @@
+# AdGuard Configuration
+adguard_base_url: http://localhost:80/
+adguard_querylog: control/querylog
+adguard_username: ""
+adguard_password: ""
+adguard_query_limit: 10000
+adguard_timeout: 60
+
+# OpenAI Configuration
+openai_api_key: your_openai_api_key_here
+
+# Agent Settings
+model: gpt-4o-mini
+history_limit: 5
+log_file: decisions.jsonl
+prompt_file: prompt.txt
+log_level: INFO
+max_workers: 0  # 0 = use all available CPUs
+auto_block_threshold: 0.9  # Automatically block domains with confidence >= this value (0.0 = disabled)
+
+# Domain Filtering
+trusted_domains:
+  - github.com
+  - githubusercontent.com
+  - microsoft.com
+  - msftncsi.com
+  - apple.com
+  - gstatic.com
+  - googleapis.com
+  - cloudflare.com
+  - akamai.net
+  - adblockplus.org
+  - example.com
+  - yourdomain.com
+
+suspicious_keywords:
+  - telemetry
+  - analytics
+  - metric
+  - track
+  - pixel
+  - beacon
+  - ads
+  - doubleclick
+
+filter_out_keywords:  # Domains containing these keywords will be ignored and removed from consideration of analysis
+  - example
+
+min_frequency_trusted: 30

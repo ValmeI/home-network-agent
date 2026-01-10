@@ -8,12 +8,10 @@ venv/
 .ruff_cache
 .vscode/
 .github/
+.DS_Store
 
 # Sensitive data - don't expose network activity
-decisions.jsonl
 *.jsonl
-config.yaml.example
-.DS_Store
 
 # Agent state (persistent memory)
 agent_state.json
