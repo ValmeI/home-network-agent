@@ -12,8 +12,8 @@ openai_api_key: your_openai_api_key_here
 # Agent Settings
 model: gpt-4o-mini
 history_limit: 5
-log_file: decisions.jsonl
 prompt_file: prompt.txt
+agent_state_file: agent_state.json
 log_level: INFO
 max_workers: 0  # 0 = use all available CPUs
 auto_block_threshold: 0.9  # Automatically block domains with confidence >= this value (0.0 = disabled)

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from loguru import logger
 
-AGENT_STATE_FILE = "agent_state.json"
+from settings import settings
 
 
 def _extract_domain_string(item) -> str | None:
@@ -16,7 +16,7 @@ def _extract_domain_string(item) -> str | None:
 def load_agent_state() -> dict:
     """Load agent state from file or initialize default state"""
     try:
-        with open(AGENT_STATE_FILE) as f:
+        with open(settings.agent_state_file) as f:
             return json.load(f)
     except FileNotFoundError:
         logger.info("No agent state found, initializing default state")
@@ -40,7 +40,7 @@ def load_agent_state() -> dict:
 
 def save_agent_state(state: dict) -> None:
     """Save agent state to file"""
-    with open(AGENT_STATE_FILE, "w") as f:
+    with open(settings.agent_state_file, "w") as f:
         json.dump(state, f, indent=2)
 
 

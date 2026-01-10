@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     openai_api_key: str
     model: str
     history_limit: int
-    log_file: str
     prompt_file: str
+    agent_state_file: str
     log_level: str
     trusted_domains: List[str]
     suspicious_keywords: List[str]
