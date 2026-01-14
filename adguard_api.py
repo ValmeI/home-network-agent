@@ -5,38 +5,66 @@ from loguru import logger
 from settings import settings
 
 
-def get_custom_blocked_domains() -> set[str]:
-    """Get domains from AdGuard custom filtering rules"""
+def _fetch_user_rules() -> list[str]:
+    """Fetch user_rules from AdGuard filtering status endpoint"""
     auth: tuple[str, str | None] | None = None
     if settings.adguard_username and settings.adguard_password:
         auth = (settings.adguard_username, settings.adguard_password)
 
-    try:
-        r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
-        r.raise_for_status()
-        data = r.json()
+    r = requests.get(f"{settings.adguard_base_url}/control/filtering/status", auth=auth, timeout=settings.adguard_timeout)
+    r.raise_for_status()
+    data = r.json()
+    return data.get("user_rules", [])
 
-        user_rules = data.get("user_rules", [])
+
+def _display_domains(domains: set[str], title: str, color: str) -> None:
+    """Display domain list with colored output"""
+    if domains:
+        print(f"\n{'=' * 100}")
+        print(f"{Style.BRIGHT}{color}{title} ({len(domains)} domains){Style.RESET_ALL}")
+        print(f"{'=' * 100}")
+        for domain in sorted(domains):
+            print(f"  {color}{domain}{Style.RESET_ALL}")
+        print(f"{'=' * 100}\n")
+
+
+def get_custom_blocked_domains() -> set[str]:
+    """Get domains from AdGuard custom filtering rules (||domain.com^)"""
+    try:
+        user_rules = _fetch_user_rules()
 
         blocked = set()
         for rule in user_rules:
-            if rule.startswith("||") and rule.endswith("^"):
-                domain = rule[2:-1]
+            if rule.startswith("||") and rule.endswith("^") and not rule.startswith("@@"):
+                domain = rule[2:-1]  # Strip || prefix and ^ suffix
                 blocked.add(domain)
 
         logger.info(f"Loaded {len(blocked)} custom rules for blocked domains from AdGuard")
-
-        if blocked:
-            print(f"\n{'=' * 100}")
-            print(f"{Style.BRIGHT}{Fore.CYAN}ALREADY BLOCKED IN ADGUARD ({len(blocked)} domains){Style.RESET_ALL}")
-            print(f"{'=' * 100}")
-            for domain in sorted(blocked):
-                print(f"  {Fore.CYAN}{domain}{Style.RESET_ALL}")
-            print(f"{'=' * 100}\n")
+        _display_domains(blocked, "ALREADY BLOCKED IN ADGUARD", Fore.CYAN)
 
         return blocked
     except Exception as e:
         logger.error(f"Could not fetch custom blocked domains from AdGuard: {e}")
+        return set()
+
+
+def get_custom_allowed_domains() -> set[str]:
+    """Get domains from AdGuard custom allowlist rules (@@||domain.com^)"""
+    try:
+        user_rules = _fetch_user_rules()
+
+        allowed = set()
+        for rule in user_rules:
+            if rule.startswith("@@||") and rule.endswith("^"):
+                domain = rule[4:-1]  # Strip @@|| prefix and ^ suffix
+                allowed.add(domain)
+
+        logger.info(f"Loaded {len(allowed)} custom rules for allowed domains from AdGuard")
+        _display_domains(allowed, "ALREADY ALLOWED IN ADGUARD", Fore.GREEN)
+
+        return allowed
+    except Exception as e:
+        logger.error(f"Could not fetch custom allowed domains from AdGuard: {e}")
         return set()
 
 

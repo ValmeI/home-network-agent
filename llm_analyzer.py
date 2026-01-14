@@ -10,7 +10,7 @@ from settings import settings
 client = OpenAI(api_key=settings.openai_api_key)
 
 
-def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str], goal: dict) -> dict:
+def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str], custom_allowed: set[str], goal: dict) -> dict:
     """Analyze network activity with LLM and get decision"""
     try:
         with open(settings.prompt_file) as f:
@@ -33,8 +33,10 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
         f"PREVIOUS DECISIONS:\n{json.dumps(history, indent=2)}\n\n"
         f"TRUSTED DOMAINS (should be ALLOW unless clearly malicious):\n{json.dumps(settings.trusted_domains, indent=2)}\n\n"
         f"ALREADY BLOCKED IN ADGUARD (do NOT include in WATCH or BLOCK lists):\n{json.dumps(sorted(custom_blocked), indent=2)}\n\n"
+        f"ALREADY ALLOWED IN ADGUARD (explicitly whitelisted by user, do NOT include in BLOCK or WATCH lists):\n{json.dumps(sorted(custom_allowed), indent=2)}\n\n"
         "Analyze the current network activity and decide on the overall threat level or notable patterns.\n"
-        "LEARN from your domain_history: if you've seen patterns of false positives or service breaks, adjust your confidence accordingly."
+        "LEARN from your domain_history: if you've seen patterns of false positives or service breaks, adjust your confidence accordingly.\n"
+        "NOTE: Domains in ALREADY ALLOWED list have been explicitly whitelisted by the user - treat these as trusted unless they show clear malicious activity."
     )
 
     prompt_size = len(prompt_template) + len(user_message)

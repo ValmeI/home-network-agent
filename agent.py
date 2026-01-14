@@ -9,7 +9,7 @@ import requests
 from colorama import init as colorama_init
 from loguru import logger
 
-from adguard_api import fetch_adguard_logs, get_custom_blocked_domains, unblock_domain_in_adguard
+from adguard_api import fetch_adguard_logs, get_custom_blocked_domains, get_custom_allowed_domains, unblock_domain_in_adguard
 from agent_state import load_agent_state, record_revert, save_agent_state, update_agent_state_with_decision
 from cli_interface import display_recommendations, execute_blocks, get_user_action
 from llm_analyzer import analyze_with_llm
@@ -21,8 +21,8 @@ colorama_init(autoreset=True)
 init_logging(settings.log_level)
 
 
-def fetch_adguard_data_parallel() -> Tuple[dict, set[str]]:
-    """Fetch AdGuard logs and blocked domains in parallel"""
+def fetch_adguard_data_parallel() -> Tuple[dict, set[str], set[str]]:
+    """Fetch AdGuard logs, blocked domains, and allowed domains in parallel"""
     start_time = time.time()
     workers = settings.max_workers or os.cpu_count() or 4
     logger.info(f"Starting parallel fetch with {workers} workers...")
@@ -34,14 +34,18 @@ def fetch_adguard_data_parallel() -> Tuple[dict, set[str]]:
         logger.debug("Submitting get_custom_blocked_domains task...")
         future_blocked = executor.submit(get_custom_blocked_domains)
 
+        logger.debug("Submitting get_custom_allowed_domains task...")
+        future_allowed = executor.submit(get_custom_allowed_domains)
+
         logger.debug("Waiting for results...")
         log = future_logs.result()
         custom_blocked = future_blocked.result()
+        custom_allowed = future_allowed.result()
 
     elapsed = time.time() - start_time
     logger.info(f"Parallel fetch completed in {elapsed:.2f}s")
 
-    return log, custom_blocked
+    return log, custom_blocked, custom_allowed
 
 
 def revert_domain(domain: str, reason: str) -> None:
@@ -184,10 +188,10 @@ def main() -> None:
             logger.info(f"AUTO MODE (ALL): Will block ALL domains with confidence >= {settings.auto_block_threshold}")
 
         logger.info("Fetching data from AdGuard...")
-        log, custom_blocked = fetch_adguard_data_parallel()
+        log, custom_blocked, custom_allowed = fetch_adguard_data_parallel()
 
         logger.info("Analyzing network activity...")
-        summary = summarize(log, custom_blocked)
+        summary = summarize(log, custom_blocked, custom_allowed)
 
         if "error" in summary:
             logger.error(summary["error"])
@@ -196,10 +200,10 @@ def main() -> None:
         print_summary_stats(summary)
 
         history = state["memory"]["history"][-settings.history_limit :]
-        filtered_history = filter_history(history, custom_blocked)
+        filtered_history = filter_history(history, custom_blocked, custom_allowed)
 
         logger.info("Agent reasoning...")
-        decision = analyze_with_llm(summary, filtered_history, custom_blocked, state["goal"])
+        decision = analyze_with_llm(summary, filtered_history, custom_blocked, custom_allowed, state["goal"])
 
         domain_clients = decision.get("summary", {}).get("domain_clients", {})
         indexed_domains = display_recommendations(decision, domain_clients)
