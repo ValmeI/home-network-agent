@@ -37,6 +37,7 @@ TORRENT TRACKERS:
 - If user has NAS with torrent client, trackers are necessary for legitimate torrenting
 - DO NOT blindly block all trackers - use WATCH to let user decide
 - Only block if tracker domain has clearly suspicious patterns (ads, analytics in name) or known malicious trackers
+- Consider frequency and client device (e.g., if only queried by NAS with torrent client, likely legitimate) as allowable etc
 
 BLOCK these patterns:
 - Ads: ads.*, doubleclick.*, googleadservices.*

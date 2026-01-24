@@ -6,10 +6,10 @@ import concurrent.futures
 from typing import Tuple
 
 import requests
-from colorama import init as colorama_init
+from colorama import init as colorama_init, Fore
 from loguru import logger
 
-from adguard_api import fetch_adguard_logs, get_custom_blocked_domains, get_custom_allowed_domains, unblock_domain_in_adguard
+from adguard_api import fetch_adguard_logs, get_custom_blocked_domains, get_custom_allowed_domains, unblock_domain_in_adguard, display_domains
 from agent_state import load_agent_state, record_revert, save_agent_state, update_agent_state_with_decision
 from cli_interface import display_recommendations, execute_blocks, get_user_action
 from llm_analyzer import analyze_with_llm
@@ -189,6 +189,9 @@ def main() -> None:
 
         logger.info("Fetching data from AdGuard...")
         log, custom_blocked, custom_allowed = fetch_adguard_data_parallel()
+
+        display_domains(custom_blocked, "ALREADY BLOCKED IN ADGUARD", Fore.CYAN)
+        display_domains(custom_allowed, "ALREADY ALLOWED IN ADGUARD", Fore.GREEN)
 
         logger.info("Analyzing network activity...")
         summary = summarize(log, custom_blocked, custom_allowed)

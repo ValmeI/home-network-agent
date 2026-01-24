@@ -17,7 +17,7 @@ def _fetch_user_rules() -> list[str]:
     return data.get("user_rules", [])
 
 
-def _display_domains(domains: set[str], title: str, color: str) -> None:
+def display_domains(domains: set[str], title: str, color: str) -> None:
     """Display domain list with colored output"""
     if domains:
         print(f"\n{'=' * 100}")
@@ -40,7 +40,6 @@ def get_custom_blocked_domains() -> set[str]:
                 blocked.add(domain)
 
         logger.info(f"Loaded {len(blocked)} custom rules for blocked domains from AdGuard")
-        _display_domains(blocked, "ALREADY BLOCKED IN ADGUARD", Fore.CYAN)
 
         return blocked
     except Exception as e:
@@ -60,7 +59,6 @@ def get_custom_allowed_domains() -> set[str]:
                 allowed.add(domain)
 
         logger.info(f"Loaded {len(allowed)} custom rules for allowed domains from AdGuard")
-        _display_domains(allowed, "ALREADY ALLOWED IN ADGUARD", Fore.GREEN)
 
         return allowed
     except Exception as e:
