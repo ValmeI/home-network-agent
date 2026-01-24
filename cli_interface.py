@@ -96,6 +96,29 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
     return indexed_domains
 
 
+def get_block_numbers(indexed_domains: dict) -> list[int]:
+    """Get numbers for domains to block from user input"""
+    while True:
+        print("\nEnter numbers to block (comma-separated, or 'all'):")
+        numbers_input = input("Numbers: ").strip().lower()
+
+        if numbers_input == "all":
+            return list(indexed_domains.keys())
+
+        try:
+            numbers = [int(n.strip()) for n in numbers_input.split(",") if n.strip()]
+            valid_numbers = [n for n in numbers if n in indexed_domains]
+
+            if not valid_numbers:
+                print(f"{Fore.RED}No valid numbers entered{Style.RESET_ALL}")
+                continue
+
+            return valid_numbers
+        except ValueError:
+            print(f"{Fore.RED}Invalid input. Use numbers separated by commas.{Style.RESET_ALL}")
+            continue
+
+
 def get_user_action(indexed_domains: dict) -> tuple[str, list[int]]:
     """Get user choice interactively"""
     if not indexed_domains:
@@ -122,24 +145,8 @@ def get_user_action(indexed_domains: dict) -> tuple[str, list[int]]:
             return "watch", []
 
         if choice == "b":
-            print("\nEnter numbers to block (comma-separated, or 'all'):")
-            numbers_input = input("Numbers: ").strip().lower()
-
-            if numbers_input == "all":
-                return "block", list(indexed_domains.keys())
-
-            try:
-                numbers = [int(n.strip()) for n in numbers_input.split(",") if n.strip()]
-                valid_numbers = [n for n in numbers if n in indexed_domains]
-
-                if not valid_numbers:
-                    print(f"{Fore.RED}No valid numbers entered{Style.RESET_ALL}")
-                    continue
-
-                return "block", valid_numbers
-            except ValueError:
-                print(f"{Fore.RED}Invalid input. Use numbers separated by commas.{Style.RESET_ALL}")
-                continue
+            selected_numbers = get_block_numbers(indexed_domains)
+            return "block", selected_numbers
 
         print(f"{Fore.RED}Invalid choice. Use b/w/s/q{Style.RESET_ALL}")
 
