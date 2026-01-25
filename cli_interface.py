@@ -103,7 +103,7 @@ def get_block_numbers(indexed_domains: dict) -> list[int]:
         numbers_input = input("Numbers: ").strip().lower()
 
         if numbers_input == "all":
-            return list(indexed_domains.keys())
+            return [idx for idx, info in indexed_domains.items() if info["action"] == "block"]
 
         try:
             numbers = [int(n.strip()) for n in numbers_input.replace(',', ' ').split() if n.strip()]
