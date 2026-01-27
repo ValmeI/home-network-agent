@@ -55,7 +55,7 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
             clients_info = _format_clients(domain_clients.get(domain, {}))
             print(f"  [{index}] {Fore.RED}{domain}{Style.RESET_ALL} {confidence_badge} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"      {Style.DIM}{reason}{Style.RESET_ALL}")
-            indexed_domains[index] = {"domain": domain, "action": "block", "confidence": confidence}
+            indexed_domains[index] = {"domain": domain, "action": "block", "confidence": confidence, "reason": reason}
             index += 1
         print()
 
@@ -79,7 +79,7 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
             clients_info = _format_clients(domain_clients.get(domain, {}))
             print(f"  [{index}] {Fore.YELLOW}{domain}{Style.RESET_ALL} {confidence_badge} {Style.DIM}{clients_info}{Style.RESET_ALL}")
             print(f"      {Style.DIM}{reason}{Style.RESET_ALL}")
-            indexed_domains[index] = {"domain": domain, "action": "watch", "confidence": confidence}
+            indexed_domains[index] = {"domain": domain, "action": "watch", "confidence": confidence, "reason": reason}
             index += 1
         print()
 
@@ -106,7 +106,7 @@ def get_block_numbers(indexed_domains: dict) -> list[int]:
             return [idx for idx, info in indexed_domains.items() if info["action"] == "block"]
 
         try:
-            numbers = [int(n.strip()) for n in numbers_input.replace(',', ' ').split() if n.strip()]
+            numbers = [int(n.strip()) for n in numbers_input.replace(",", " ").split() if n.strip()]
             valid_numbers = [n for n in numbers if n in indexed_domains]
 
             if not valid_numbers:
@@ -161,9 +161,10 @@ def execute_blocks(indexed_domains: dict, selected_numbers: list[int], reason: s
             continue
 
         domain = domain_info["domain"]
+        domain_reason = domain_info.get("reason") or reason
         logger.info(f"Blocking {domain}...")
 
-        if block_domain_in_adguard(domain, reason):
+        if block_domain_in_adguard(domain, domain_reason):
             blocked.append(domain)
 
     return blocked
