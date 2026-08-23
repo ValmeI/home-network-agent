@@ -10,7 +10,7 @@ adguard_timeout: 60
 openai_api_key: your_openai_api_key_here
 
 # Agent Settings
-model: gpt-4o-mini
+model: gpt-5.6-luna
 history_limit: 5
 prompt_file: prompt.txt
 agent_state_file: agent_state.json
