@@ -51,16 +51,18 @@ def load_history() -> list[dict]:
 
 
 def get_seen_domains() -> set[str]:
-    """Get all domains from previous decisions"""
+    """Get domains already acted on (blocked or allowed) - recommendations the user skipped resurface as new"""
     history = load_history()
     seen = set()
     for entry in history:
         decision = entry.get("decision", {})
-        for domain_list_key in ["domains_to_block", "domains_to_watch", "domains_to_allow"]:
-            for item in decision.get(domain_list_key, []):
-                domain = _extract_domain_string(item)
-                if domain:
-                    seen.add(domain)
+        for item in decision.get("domains_to_allow", []):
+            domain = _extract_domain_string(item)
+            if domain:
+                seen.add(domain)
+        for domain in decision.get("auto_blocked", []):
+            if domain:
+                seen.add(domain)
     return seen
 
 

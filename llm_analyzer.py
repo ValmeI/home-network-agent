@@ -36,7 +36,8 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
         f"ALREADY ALLOWED IN ADGUARD (explicitly whitelisted by user, do NOT include in BLOCK or WATCH lists):\n{json.dumps(sorted(custom_allowed), indent=2)}\n\n"
         "Analyze the current network activity and decide on the overall threat level or notable patterns.\n"
         "LEARN from your domain_history: if you've seen patterns of false positives or service breaks, adjust your confidence accordingly.\n"
-        "NOTE: Domains in ALREADY ALLOWED list have been explicitly whitelisted by the user - treat these as trusted unless they show clear malicious activity."
+        "NOTE: Domains in ALREADY ALLOWED list have been explicitly whitelisted by the user - treat these as trusted unless they show clear malicious activity.\n"
+        "IMPORTANT: Domains you recommended in PREVIOUS DECISIONS that are NOT in the already-blocked list were skipped by the user - if they still look suspicious, recommend them again so the user can reconsider."
     )
 
     prompt_size = len(prompt_template) + len(user_message)
