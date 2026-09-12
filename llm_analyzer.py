@@ -40,13 +40,16 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
     )
 
     prompt_size = len(prompt_template) + len(user_message)
-    logger.info(f"LLM prompt size: {prompt_size} characters ({prompt_size / 1024:.2f} KB)")
+    logger.info(f"LLM request: model={settings.model}, prompt size {prompt_size} characters ({prompt_size / 1024:.2f} KB)")
 
     resp = client.chat.completions.create(
         model=settings.model,
         messages=[{"role": "system", "content": prompt_template}, {"role": "user", "content": user_message}],
         response_format={"type": "json_object"},
     )
+
+    usage = resp.usage
+    logger.info(f"LLM response: model={resp.model}, tokens in={usage.prompt_tokens} out={usage.completion_tokens} total={usage.total_tokens}")
 
     if not resp.choices[0].message.content:
         raise ValueError("Empty response from LLM")
