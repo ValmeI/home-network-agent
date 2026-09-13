@@ -43,6 +43,16 @@ suspicious_keywords:
   - ads
   - doubleclick
 
+suspicious_tlds: # Domains ending with these TLDs are flagged as suspicious
+  - .top
+  - .xyz
+  - .icu
+  - .click
+  - .gdn
+  - .cfd
+  - .sbs
+  - .zip
+
 filter_out_keywords:  # Domains containing these keywords will be ignored and removed from consideration of analysis
   - example
 

@@ -2,6 +2,7 @@ from colorama import Fore, Style
 from loguru import logger
 
 from adguard_api import block_domain_in_adguard
+from settings import settings
 
 
 def _format_clients(clients: dict) -> str:
@@ -16,7 +17,7 @@ def display_recommendations(decision: dict, domain_clients: dict) -> dict:
     """Display recommendations and return indexed domains"""
     domains_to_block = decision.get("domains_to_block", [])
     domains_to_watch = decision.get("domains_to_watch", [])
-    domains_to_allow = decision.get("domains_to_allow", [])
+    domains_to_allow = [d for d in decision.get("domains_to_allow", []) if isinstance(d, str) and not any(p in d.lower() for p in settings.trusted_domains)]
     explanation = decision.get("explanation", {})
 
     if isinstance(explanation, str):

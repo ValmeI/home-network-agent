@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     log_level: str
     trusted_domains: List[str]
     suspicious_keywords: List[str]
+    suspicious_tlds: List[str]
     filter_out_keywords: List[str]
     min_frequency_trusted: int
     max_workers: int = 0

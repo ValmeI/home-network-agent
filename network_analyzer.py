@@ -1,8 +1,23 @@
+import math
 from collections import Counter
 from datetime import datetime
 
 from agent_state import get_seen_domains
 from settings import settings
+
+
+def _has_suspicious_tld(domain: str) -> bool:
+    return any(domain.endswith(tld) for tld in settings.suspicious_tlds)
+
+
+def _looks_dga(domain: str) -> bool:
+    """Long high-entropy label = likely machine-generated (DGA) domain"""
+    label = max(domain.split("."), key=len)
+    if len(label) < 16:
+        return False
+    probs = [count / len(label) for count in Counter(label).values()]
+    entropy = -sum(p * math.log2(p) for p in probs)
+    return entropy > 3.5
 
 
 def _should_filter_out(domain: str) -> bool:
@@ -63,7 +78,7 @@ def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked:
         if is_trusted and count >= settings.min_frequency_trusted:
             continue
 
-        if any(x in lower for x in settings.suspicious_keywords):
+        if any(x in lower for x in settings.suspicious_keywords) or _has_suspicious_tld(lower) or _looks_dga(lower):
             suspicious.append(domain)
 
     return suspicious
@@ -94,11 +109,11 @@ def summarize(log: dict, custom_blocked: set[str], custom_allowed: set[str] | No
     is_night = hour < 6 or hour > 23
 
     return {
-        "top_domains": counts.most_common(5),
+        "top_domains": counts.most_common(20),
         "total_queries": len(domains),
         "unique_domains": len(set(domains)),
-        "new_domains": new_domains[:10],
-        "suspicious_domains": suspicious[:10],
+        "new_domains": new_domains[:50],
+        "suspicious_domains": suspicious[:50],
         "blocked_count": blocked_count,
         "time_context": f"Hour {hour}, {'night' if is_night else 'day'}",
         "domain_clients": {
