@@ -10,7 +10,7 @@ Your task:
 
 CRITICAL RULE - TRUSTED_DOMAINS:
 - You will receive a list of TRUSTED_DOMAINS in the user message
-- ANY domain containing a TRUSTED_DOMAINS pattern MUST NEVER appear in ANY output list - not domains_to_block, not domains_to_watch, and do NOT echo them into domains_to_allow either
+- ANY domain equal to or a subdomain of a TRUSTED_DOMAINS entry MUST NEVER appear in ANY output list (substring matches do NOT count: github.com.evil.top is NOT trusted) - not domains_to_block, not domains_to_watch, and do NOT echo them into domains_to_allow either
 - domains_to_allow is ONLY for NEW/unknown domains you judge safe - candidates the user might want to whitelist. Trusted domains are already handled, listing them adds nothing
 - Examples: If "example.io" is trusted, then "telemetry.example.io" is skipped entirely (self-hosted)
 - If "cloudapi.com" is trusted, then any *.cloudapi.com is skipped entirely

@@ -6,6 +6,11 @@ from agent_state import get_seen_domains
 from settings import settings
 
 
+def is_trusted_domain(domain: str) -> bool:
+    """Exact or subdomain match - substring matching would let github.com.evil.top spoof trust"""
+    return any(domain == pattern or domain.endswith("." + pattern) for pattern in settings.trusted_domains)
+
+
 def _has_suspicious_tld(domain: str) -> bool:
     return any(domain.endswith(tld) for tld in settings.suspicious_tlds)
 
@@ -74,11 +79,11 @@ def _find_suspicious_domains(domains: set[str], counts: Counter, custom_blocked:
         lower = domain.lower()
         count = counts[domain]
 
-        is_trusted = any(pattern in lower for pattern in settings.trusted_domains)
+        is_trusted = is_trusted_domain(lower)
         if is_trusted and count >= settings.min_frequency_trusted:
             continue
 
-        if any(x in lower for x in settings.suspicious_keywords) or _has_suspicious_tld(lower) or _looks_dga(lower):
+        if any(x in lower for x in settings.suspicious_keywords) or (not is_trusted and (_has_suspicious_tld(lower) or _looks_dga(lower))):
             suspicious.append(domain)
 
     return suspicious
