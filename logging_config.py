@@ -1,4 +1,6 @@
 from loguru import logger
+
+from settings import settings
 import sys
 import traceback
 from types import TracebackType
@@ -13,6 +15,8 @@ def setup_loguru_logger(level: str) -> None:
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>{exception}"
     )
     logger.add(sys.stderr, level=level, format=log_format, colorize=True, backtrace=True, diagnose=True)
+    # diagnose=False keeps variable values (API keys) out of the file
+    logger.add(settings.log_file, level=level, format=log_format, rotation=settings.log_rotation, retention=settings.log_retention, diagnose=False)
 
 
 def handle_exception(exc_type: Type[BaseException], exc_value: BaseException, exc_traceback: Optional[TracebackType], stack_row_limit: int = 10) -> None:

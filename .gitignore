@@ -4,7 +4,6 @@ __pycache__/
 config.yaml
 .venv/
 venv/
-.venv
 .ruff_cache
 .vscode/
 .github/
@@ -15,3 +14,9 @@ venv/
 
 # Agent state (persistent memory)
 agent_state.json
+
+# Agent run logs
+logs/
+querylog_cache.json
+querylog_cache.tmp
+rules_backups/

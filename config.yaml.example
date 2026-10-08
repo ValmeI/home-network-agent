@@ -1,24 +1,27 @@
-# AdGuard Configuration
+# AdGuard
 adguard_base_url: http://localhost:80/
 adguard_querylog: control/querylog
 adguard_username: ""
 adguard_password: ""
-adguard_query_limit: 10000
+adguard_query_limit: 10000  # page size; all pages are fetched
+adguard_max_queries: 3000000  # stop paging after this many
 adguard_timeout: 60
 
-# OpenAI Configuration
+# OpenAI
 openai_api_key: your_openai_api_key_here
 
-# Agent Settings
+# Agent
 model: gpt-5.6-luna
 history_limit: 5
 prompt_file: prompt.txt
 agent_state_file: agent_state.json
 log_level: INFO
-max_workers: 0  # 0 = use all available CPUs
-auto_block_threshold: 0.9  # Automatically block domains with confidence >= this value (0.0 = disabled)
 
-# Domain Filtering
+device_names:  # LAN IP -> label for the LLM, overrides router names; unnamed IPs become devNN (last octet)
+  192.168.50.50: homelab-server
+  192.168.50.13: nas
+
+# Domain filtering
 trusted_domains:
   - github.com
   - githubusercontent.com
@@ -43,7 +46,7 @@ suspicious_keywords:
   - ads
   - doubleclick
 
-suspicious_tlds: # Domains ending with these TLDs are flagged as suspicious
+suspicious_tlds:  # flagged as suspicious
   - .top
   - .xyz
   - .icu
@@ -53,7 +56,98 @@ suspicious_tlds: # Domains ending with these TLDs are flagged as suspicious
   - .sbs
   - .zip
 
-filter_out_keywords:  # Domains containing these keywords will be ignored and removed from consideration of analysis
+filter_out_keywords:  # domains containing these are dropped before analysis
   - example
 
-min_frequency_trusted: 30
+# Never block any host of these vendors: they run site features (forms, checkout, chat, captcha, consent)
+protected_vendor_domains:
+  - klaviyo.com # email marketing; signup/newsletter forms
+  - pendo.io # in-app guides and onboarding tours
+  - intercom.io # support chat widget
+  - intercomcdn.com # Intercom widget assets
+  - hubspot.com # CRM; contact/signup forms, chat
+  - hs-scripts.com # HubSpot form and chat scripts
+  - adyen.com # payments; checkout
+  - stripe.com # payments; checkout
+  - paypal.com # payments; checkout
+  - sentry.io # error reporting; some apps fail without it
+  - optimizely.com # A/B tests; pages can stay blank when blocked
+  - launchdarkly.com # feature flags; apps can lose features
+  - onetrust.com # cookie consent banner
+  - cookielaw.org # OneTrust consent scripts
+  - zendesk.com # support widget and help centers
+  - recaptcha.net # captcha; logins and forms fail without it
+  - hcaptcha.com # captcha; logins and forms fail without it
+
+# Shared hosting / cloud / CDN: one parent serves unrelated customers, so never block the whole domain; specific subdomains are fine
+no_parent_block_domains:
+  - cloudapp.azure.com # Azure VMs and services
+  - azurewebsites.net # Azure web apps
+  - core.windows.net # Azure storage
+  - azurefd.net # Azure Front Door CDN
+  - azureedge.net # Azure CDN
+  - e-msedge.net # Microsoft edge network
+  - trafficmanager.net # Azure traffic routing
+  - amazonaws.com # AWS
+  - cloudfront.net # AWS CDN
+  - akamaiedge.net # Akamai CDN
+  - akamaized.net # Akamai CDN
+  - edgekey.net # Akamai CDN
+  - fastly.net # Fastly CDN
+  - run.app # Google Cloud Run
+  - web.app # Firebase hosting
+  - firebaseapp.com # Firebase hosting
+  - appspot.com # Google App Engine
+  - github.io # GitHub Pages
+  - vercel.app # Vercel hosting
+  - netlify.app # Netlify hosting
+  - herokuapp.com # Heroku
+  - blogspot.com # Blogger
+  - noip.me # dynamic DNS, shared by many users
+
+# Domain suffixes never sent to the LLM (reverse DNS, LAN and search-domain names)
+junk_suffixes: [".arpa", ".local", ".lan", ".internal", ".invalid", ".corp"]  # .corp: example of a LAN search domain
+# CLI confidence colours: green >= high, yellow >= medium, else red
+confidence_high: 0.7
+confidence_medium: 0.5
+# DGA check: longest label at least this long and above this Shannon entropy
+dga_min_label_len: 16
+dga_entropy_threshold: 3.5
+# Numbered sibling hosts collapse into one pattern line from this many hosts
+family_min_size: 3
+# Hex runs this long count as numbering when grouping siblings
+family_hex_min_len: 8
+# Per-domain history unseen this many days is dropped
+domain_stats_retention_days: 30
+# Reverts (false-positive lessons) kept and sent to the LLM
+reflections_limit: 10
+# Log file (relative to repo), rotation size, rotated files kept
+log_file: logs/agent.log
+log_rotation: 5 MB
+log_retention: 5
+
+# Days of query history analysed
+querylog_window_days: 7
+# Per-day counts cached so each run fetches only new log entries
+querylog_cache_file: querylog_cache.json
+
+# Hosts with a name part starting with any of these are never blocked
+never_block_keywords: [checkout, pay, auth, login, signin, sso, oauth, captcha, hcaptcha, recaptcha, ocsp, crl, ntp, update, license, push, connectivity, captive, detectportal, msftconnecttest, msftncsi]
+# AdGuard user rules backed up before every change (relative to repo); newest rules_backup_keep kept
+rules_backup_dir: rules_backups
+rules_backup_keep: 50
+# After a revert, hosts sharing the reverted host's last N name parts are never offered (e.g. 4: console.aws.a2z.com)
+revert_sibling_depth: 4
+# Blocked domain one device retried this often in the window is shown to the AI as possibly broken
+retry_storm_min_blocked: 100
+# Devices shown per domain, most active first
+clients_per_domain: 5
+# Blocked domains you checked are safe to keep blocked: never suggested for unblocking (subdomains included)
+keep_blocked_domains:
+  - partner.netflix.net # LG TV / Android TV Netflix background calls; Netflix works without them
+# Asus router over SSH (read-only): device names from DHCP leases and router nicknames
+# router_ssh_jump: host that has the router key (the homelab); "" = connect directly
+# router_ssh_host: SSH alias (user, key, port) on the jump host, or locally when no jump; use the read-only key (see README)
+router_ssh_jump: 192.168.50.50
+router_ssh_host: router-agent
+router_timeout: 10
