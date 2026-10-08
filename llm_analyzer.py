@@ -1,4 +1,9 @@
+import itertools
 import json
+import sys
+import threading
+import time
+from contextlib import contextmanager
 from datetime import datetime
 
 from loguru import logger
@@ -8,6 +13,32 @@ from agent_state import load_agent_state
 from settings import settings
 
 client = OpenAI(api_key=settings.openai_api_key)
+
+
+@contextmanager
+def spinner(label: str):
+    # ponytail: TTY only, so cron/log runs stay clean
+    if not sys.stderr.isatty():
+        yield
+        return
+    stop = threading.Event()
+
+    def spin():
+        start = time.monotonic()
+        for frame in itertools.cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"):
+            if stop.wait(0.1):
+                break
+            sys.stderr.write(f"\r{frame} {label} {time.monotonic() - start:.0f}s ")
+            sys.stderr.flush()
+        sys.stderr.write("\r\033[K")
+
+    t = threading.Thread(target=spin, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join()
 
 
 def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str], custom_allowed: set[str], goal: dict) -> dict:
@@ -43,11 +74,12 @@ def analyze_with_llm(summary: dict, history: list[dict], custom_blocked: set[str
     prompt_size = len(prompt_template) + len(user_message)
     logger.info(f"LLM request: model={settings.model}, prompt size {prompt_size} characters ({prompt_size / 1024:.2f} KB)")
 
-    resp = client.chat.completions.create(
-        model=settings.model,
-        messages=[{"role": "system", "content": prompt_template}, {"role": "user", "content": user_message}],
-        response_format={"type": "json_object"},
-    )
+    with spinner("AI analyzing network activity..."):
+        resp = client.chat.completions.create(
+            model=settings.model,
+            messages=[{"role": "system", "content": prompt_template}, {"role": "user", "content": user_message}],
+            response_format={"type": "json_object"},
+        )
 
     usage = resp.usage
     logger.info(f"LLM response: model={resp.model}, tokens in={usage.prompt_tokens} out={usage.completion_tokens} total={usage.total_tokens}")
