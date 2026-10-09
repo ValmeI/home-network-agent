@@ -43,13 +43,14 @@ NEVER BLOCK these patterns (essential infrastructure):
 
 BE SMART about telemetry:
 - "30+ queries = user uses the service = ALLOW" applies to core service endpoints only, NEVER to telemetry/logging subdomains (high counts just mean chatty telemetry)
-- Telemetry subdomains (telemetry.*, analytics.*, metrics.*, log.*, *-debug.*) from ANY service = block candidates when they only send data out. If a host might also deliver configuration or features the app needs, WATCH instead of BLOCK
+- Telemetry subdomains (telemetry.*, analytics.*, metrics.*, *-debug.*) from ANY service = block candidates when they only send data out. If a host might also deliver configuration or features the app needs, WATCH instead of BLOCK
+- VPN and networking clients (Tailscale, WireGuard, NordVPN...): never block any of their hosts, including log/telemetry ones - blocking log.tailscale.com broke Tailscale on a phone
 - Vendor phone-home/usage telemetry from self-hosted software (e.g. telemetry.qdrant.io from the NAS/server) is NOT self-hosted monitoring - blocking it never breaks the software = BLOCK
 - Known telemetry hosts to catch:
   - onedscolprd*.<region>.cloudapp.azure.com (Microsoft 1DS telemetry), *.nel.measure.office.net, js.monitor.azure.com
   - default.exp-tas.com / *.exp-tas.com (VS Code experimentation)
   - firebase-settings.crashlytics.com, fls-*.amazon.*, *.forester.a2z.com (Amazon device metrics)
-  - log.tailscale.com / log.tailscale.io, dl-debug.dropbox.com and other vendor log.*/*-debug.* endpoints
+  - dl-debug.dropbox.com and other vendor *-debug.* endpoints
   - remoteconfig.sdk.crowd-umlaut.com, hive.p3crowd.com (P3 crowd measurement SDK)
 
 TORRENT TRACKERS (tracker.*, udp.tracker.*, open.stealth.si, explodie.org, exodus.desync.com, opentrackr...):
