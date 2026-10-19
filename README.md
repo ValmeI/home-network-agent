@@ -12,8 +12,9 @@ Reads AdGuard Home DNS query logs and asks an OpenAI model which domains to bloc
 ## Setup
 
 ```bash
+command -v uv || curl -LsSf https://astral.sh/uv/install.sh | sh   # install uv if missing
 cp config.yaml.example config.yaml
-python -m venv .venv && .venv/bin/pip install -r requirements.txt
+uv venv --allow-existing && uv pip install -r requirements.txt
 ```
 
 Every key in `config.yaml.example` is required; a missing one fails at startup.
