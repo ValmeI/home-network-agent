@@ -1,10 +1,13 @@
-import yaml
 from pathlib import Path
-from typing import List
+from typing import Any
+
+import yaml
 from pydantic_settings import BaseSettings
+
 
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.yaml"
+PRIVATE_FILE = BASE_DIR / "private.yaml"  # credentials and personal domains, not in git
 # relative paths in config.yaml are relative to the repo, so the agent works from any directory (e.g. cron)
 PATH_FIELDS = ("prompt_file", "agent_state_file", "querylog_cache_file", "log_file", "rules_backup_dir")
 
@@ -25,24 +28,24 @@ class Settings(BaseSettings):
     prompt_file: str
     agent_state_file: str
     log_level: str
-    trusted_domains: List[str]
-    suspicious_keywords: List[str]
-    suspicious_tlds: List[str]
-    filter_out_keywords: List[str]
+    trusted_domains: list[str]
+    suspicious_keywords: list[str]
+    suspicious_tlds: list[str]
+    filter_out_keywords: list[str]
     device_names: dict[str, str]
-    no_parent_block_domains: List[str]
-    protected_vendor_domains: List[str]
-    never_block_keywords: List[str]
+    no_parent_block_domains: list[str]
+    protected_vendor_domains: list[str]
+    never_block_keywords: list[str]
     rules_backup_dir: str
     rules_backup_keep: int
     revert_sibling_depth: int
     retry_storm_min_blocked: int
     clients_per_domain: int
-    keep_blocked_domains: List[str]
+    keep_blocked_domains: list[str]
     router_ssh_jump: str
     router_ssh_host: str
     router_timeout: int
-    junk_suffixes: List[str]
+    junk_suffixes: list[str]
     confidence_high: float
     confidence_medium: float
     dga_min_label_len: int
@@ -56,11 +59,28 @@ class Settings(BaseSettings):
     log_retention: int
 
 
+def _read_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"{path} not found")
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+def merge_private(shared: dict[str, Any], private: dict[str, Any]) -> dict[str, Any]:
+    """Lists in both files are joined; any other key may be set in only one file"""
+    merged = dict(shared)
+    for key, value in private.items():
+        if key not in shared:
+            merged[key] = value
+        elif isinstance(shared[key], list) and isinstance(value, list):
+            merged[key] = shared[key] + value
+        else:
+            raise ValueError(f"{key} is set in both {CONFIG_FILE.name} and {PRIVATE_FILE.name}; keep it in one")
+    return merged
+
+
 def load_settings() -> Settings:
-    if not CONFIG_FILE.exists():
-        raise FileNotFoundError(f"{CONFIG_FILE} not found")
-    with open(CONFIG_FILE) as f:
-        loaded = Settings(**yaml.safe_load(f))
+    loaded = Settings(**merge_private(_read_yaml(CONFIG_FILE), _read_yaml(PRIVATE_FILE)))
     for field in PATH_FIELDS:
         setattr(loaded, field, str(BASE_DIR / getattr(loaded, field)))
     return loaded

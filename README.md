@@ -13,12 +13,12 @@ Reads AdGuard Home DNS query logs and asks an OpenAI model which domains to bloc
 
 ```bash
 command -v uv || curl -LsSf https://astral.sh/uv/install.sh | sh   # install uv if missing
-cp config.yaml.example config.yaml
+cp private.yaml.example private.yaml
 uv venv --allow-existing && uv pip install -r requirements.txt
 ```
 
-Every key in `config.yaml.example` is required; a missing one fails at startup.
-Set the AdGuard URL and credentials, `openai_api_key` and `model`.
+`config.yaml` is in git and holds the shared settings. `private.yaml` is not in git: it holds the AdGuard credentials, `openai_api_key` and personal domains. Copy it to every machine that runs the agent.
+A list in `private.yaml` is added to the same list in `config.yaml`; any other key may be in only one file. Every key is required; a missing one fails at startup.
 `router_ssh_host` must be an SSH alias (user, key, port) on the `router_ssh_jump` host, or locally when `router_ssh_jump` is `""`. The run fails if the router SSH fails.
 
 ### Router key (read-only)

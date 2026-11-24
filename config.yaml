@@ -1,27 +1,18 @@
-# AdGuard
-adguard_base_url: http://localhost:80/
+# Shared settings, committed. Credentials and personal domains go in private.yaml (see private.yaml.example).
+# AdGuard Configuration
+adguard_base_url: http://homelab.local:3000/
 adguard_querylog: control/querylog
-adguard_username: ""
-adguard_password: ""
-adguard_query_limit: 10000  # page size; all pages are fetched
-adguard_max_queries: 3000000  # stop paging after this many
-adguard_timeout: 60
+adguard_query_limit: 100000
+adguard_timeout: 120
 
-# OpenAI
-openai_api_key: your_openai_api_key_here
-
-# Agent
+# Agent Settings
 model: gpt-5.6-luna
 history_limit: 5
 prompt_file: prompt.txt
 agent_state_file: agent_state.json
 log_level: INFO
 
-device_names:  # LAN IP -> label for the LLM, overrides router names; unnamed IPs become devNN (last octet)
-  192.168.50.50: homelab-server
-  192.168.50.13: nas
-
-# Domain filtering
+# Domain Filtering
 trusted_domains:
   - github.com
   - githubusercontent.com
@@ -33,8 +24,31 @@ trusted_domains:
   - cloudflare.com
   - akamai.net
   - adblockplus.org
-  - example.com
-  - yourdomain.com
+  - betterdisplay.pro
+  - ghostty.org
+  - showrss.info
+  - gitkraken.com
+  - quickconnect.to
+  - ipv4.tracker.harry.lu
+  - tracker.birkenwald.de
+  - tracker.cyberia.is
+  - tracker.moeking.me
+  - tracker.opentrackr.org
+  - tracker.tiny-vps.com
+  - tracker.torrent.eu.org
+  - githubcopilot.com
+  - ipify.org
+  - bitdefender.net
+  - istatmenus.app
+  - thermia.se
+  - dockdoor.net
+  - dockdoor.kepler.cafe
+  - pilotmoon.com  # ReverseScroll
+  - claude.com
+  - cmux.dev # cmux
+  - tailscale.com # Tailscale VPN; blocking log.tailscale.com broke Tailscale on the phone
+  - tailscale.io # Tailscale VPN
+  - ts.net # Tailscale MagicDNS device names
 
 suspicious_keywords:
   - telemetry
@@ -46,7 +60,7 @@ suspicious_keywords:
   - ads
   - doubleclick
 
-suspicious_tlds:  # flagged as suspicious
+suspicious_tlds: # Domains ending with these TLDs are flagged as suspicious
   - .top
   - .xyz
   - .icu
@@ -56,10 +70,10 @@ suspicious_tlds:  # flagged as suspicious
   - .sbs
   - .zip
 
-filter_out_keywords:  # domains containing these are dropped before analysis
-  - example
+filter_out_keywords: [] # Domains containing these keywords are ignored; personal ones go in private.yaml
 
-# Never block any host of these vendors: they run site features (forms, checkout, chat, captcha, consent)
+
+# Never block any host of these vendors: they run working site features (forms, checkout, guides, chat, captcha, consent)
 protected_vendor_domains:
   - klaviyo.com # email marketing; signup/newsletter forms
   - pendo.io # in-app guides and onboarding tours
@@ -106,48 +120,53 @@ no_parent_block_domains:
   - noip.me # dynamic DNS, shared by many users
 
 # Domain suffixes never sent to the LLM (reverse DNS, LAN and search-domain names)
-junk_suffixes: [".arpa", ".local", ".lan", ".internal", ".invalid", ".corp"]  # .corp: example of a LAN search domain
-# CLI confidence colours: green >= high, yellow >= medium, else red
+junk_suffixes: [".arpa", ".local", ".lan", ".internal", ".invalid", ".sise"]
+# CLI confidence colours: green at or above high, yellow at or above medium, else red
 confidence_high: 0.7
 confidence_medium: 0.5
-# DGA check: longest label at least this long and above this Shannon entropy
+# Random-looking (DGA) label check: longest label at least this long and above this Shannon entropy
 dga_min_label_len: 16
 dga_entropy_threshold: 3.5
-# Numbered sibling hosts collapse into one pattern line from this many hosts
+# Numbered sibling hosts collapse into one pattern line when a family has at least this many hosts
 family_min_size: 3
-# Hex runs this long count as numbering when grouping siblings
+# Hex runs at least this long count as numbering when grouping sibling hosts
 family_hex_min_len: 8
-# Per-domain history unseen this many days is dropped
+# Per-domain history not seen for this many days is dropped
 domain_stats_retention_days: 30
 # Reverts (false-positive lessons) kept and sent to the LLM
 reflections_limit: 10
-# Log file (relative to repo), rotation size, rotated files kept
+# Log file, relative to the repo; rotation size and number of rotated files kept
 log_file: logs/agent.log
 log_rotation: 5 MB
 log_retention: 5
 
-# Days of query history analysed
+# Safety cap on queries fetched from the AdGuard query log
+adguard_max_queries: 3000000
+# LAN IP to device label sent to the LLM; unnamed devices show as devNN
+device_names: {}
+
+# Days of query history analysed; older days drop out of the cache
 querylog_window_days: 7
-# Per-day counts cached so each run fetches only new log entries
+# Per-day query counts kept between runs, so each run fetches only new log entries
 querylog_cache_file: querylog_cache.json
 
-# Hosts with a name part starting with any of these are never blocked
+# Hosts whose name parts start with any of these are never blocked (payments, logins, captcha, certificates, time, updates, push, connectivity checks)
 never_block_keywords: [checkout, pay, auth, login, signin, sso, oauth, captcha, hcaptcha, recaptcha, ocsp, crl, ntp, update, license, push, connectivity, captive, detectportal, msftconnecttest, msftncsi]
-# AdGuard user rules backed up before every change (relative to repo); newest rules_backup_keep kept
+# Copy of all AdGuard user rules saved before every change, relative to the repo; oldest beyond keep are deleted
 rules_backup_dir: rules_backups
 rules_backup_keep: 50
 # After a revert, hosts sharing the reverted host's last N name parts are never offered (e.g. 4: console.aws.a2z.com)
 revert_sibling_depth: 4
-# Blocked domain one device retried this often in the window is shown to the AI as possibly broken
+# A blocked domain one device retried at least this many times in the window is shown to the AI as possibly broken
 retry_storm_min_blocked: 100
-# Devices shown per domain, most active first
+# Devices shown per domain (most active first), in the prompt and the CLI
 clients_per_domain: 5
-# Blocked domains you checked are safe to keep blocked: never suggested for unblocking (subdomains included)
+# Blocked domains you checked are not needed: never shown as possibly broken or suggested for unblocking (subdomains included)
 keep_blocked_domains:
   - partner.netflix.net # LG TV / Android TV Netflix background calls; Netflix works without them
-# Asus router over SSH (read-only): device names from DHCP leases and router nicknames
-# router_ssh_jump: host that has the router key (the homelab); "" = connect directly
-# router_ssh_host: SSH alias (user, key, port) on the jump host, or locally when no jump; use the read-only key (see README)
-router_ssh_jump: 192.168.50.50
+# Asus router over SSH (read-only): names devices for the AI from DHCP leases and your router nicknames.
+# router_ssh_host is an alias from the SSH config of the machine that connects (user, key and port live there).
+# router_ssh_jump: host to connect through (the homelab, which already has the router key); "" = connect directly
+router_ssh_jump: ""
 router_ssh_host: router-agent
 router_timeout: 10
