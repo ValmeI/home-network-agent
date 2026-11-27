@@ -14,7 +14,7 @@ Reads AdGuard Home DNS query logs and asks an OpenAI model which domains to bloc
 ```bash
 command -v uv || curl -LsSf https://astral.sh/uv/install.sh | sh   # install uv if missing
 cp private.yaml.example private.yaml
-uv venv --allow-existing && uv pip install -r requirements.txt
+uv sync
 ```
 
 `config.yaml` is in git and holds the shared settings. `private.yaml` is not in git: it holds the AdGuard credentials, `openai_api_key` and personal domains. Copy it to every machine that runs the agent.
@@ -47,9 +47,9 @@ Check that any other command still only returns the client list: `ssh router-age
 ## Usage
 
 ```bash
-.venv/bin/python agent.py                                      # analyze and review
-.venv/bin/python agent.py revert example.com "broke my service"
-.venv/bin/python agent.py revert 'abc*.example.com' "reason"   # quote wildcards
+uv run agent.py                                      # analyze and review
+uv run agent.py revert example.com "broke my service"
+uv run agent.py revert 'abc*.example.com' "reason"   # quote wildcards
 ```
 
 `revert` removes the block and records the reason; the domain is never suggested again. A host blocked only by a whole-domain or wildcard rule gets an allow rule instead.
@@ -57,5 +57,5 @@ Check that any other command still only returns the client list: `ssh router-age
 ## Test
 
 ```bash
-.venv/bin/python test_domain_coverage.py
+uv run test_domain_coverage.py
 ```
